@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -80,8 +79,14 @@ class _MapScreenState extends State<MapScreen> {
       final directory = await getApplicationDocumentsDirectory();
       final path = p.join(directory.path, 'data.gpkg');
       
+      // ფაილის ხელახლა ჩაწერა assets-იდან
+      final file = File(path);
+      if (await file.exists()) {
+        await file.delete();
+      }
+      
       ByteData data = await rootBundle.load('assets/data.gpkg');
-      await File(path).writeAsBytes(data.buffer.asUint8List());
+      await file.writeAsBytes(data.buffer.asUint8List());
 
       final db = await openDatabase(path);
       
@@ -92,12 +97,16 @@ class _MapScreenState extends State<MapScreen> {
       List<Marker> newMarkers = [];
 
       for (var row in rows) {
-        // პირდაპირი წაკითხვა ყოველგვარი გადამოწმების გარეშე
+        // პირდაპირი წაკითხვა
         final lat = double.tryParse(row['lat']?.toString() ?? '');
         final lon = double.tryParse(row['long']?.toString() ?? row['lon']?.toString() ?? '');
+        final type = row['Type']?.toString() ?? row['type']?.toString() ?? 'სხვა';
 
         if (lat != null && lon != null) {
           totalFound++;
+          debugPrint("ნაპოვნია ტიპი: $type ($lat, $lon)");
+          final markerStyle = _getMarkerStyle(type);
+          
           newMarkers.add(
             Marker(
               point: LatLng(lat, lon),
@@ -105,7 +114,11 @@ class _MapScreenState extends State<MapScreen> {
               height: 50,
               child: GestureDetector(
                 onTap: () => _showFeatureInfo(row),
-                child: const Icon(Icons.location_on, color: Colors.red, size: 45),
+                child: Icon(
+                  markerStyle.icon, 
+                  color: markerStyle.color, 
+                  size: 45
+                ),
               ),
             ),
           );
@@ -129,22 +142,103 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
+  _MarkerStyle _getMarkerStyle(String type) {
+    final t = type.toLowerCase().trim();
+    
+    // ცნობილი კატეგორიების რუკა
+    final Map<String, _MarkerStyle> knownStyles = {
+      'აფთიაქი': _MarkerStyle(Icons.local_pharmacy, Colors.green),
+      'მარკეტი': _MarkerStyle(Icons.shopping_cart, Colors.blue),
+      'მაღაზია': _MarkerStyle(Icons.shopping_cart, Colors.blue),
+      'ბანკი': _MarkerStyle(Icons.account_balance, Colors.orange),
+      'რესტორანი': _MarkerStyle(Icons.restaurant, Colors.red),
+      'კაფე': _MarkerStyle(Icons.restaurant, Colors.red),
+      'სკოლა': _MarkerStyle(Icons.school, Colors.purple),
+      'ბაღი': _MarkerStyle(Icons.school, Colors.purple),
+      'ბენზინგასამართი': _MarkerStyle(Icons.local_gas_station, Colors.orangeAccent),
+      'გასამართი სადგური': _MarkerStyle(Icons.local_gas_station, Colors.orangeAccent),
+      'ეკლესია': _MarkerStyle(Icons.church, Colors.brown),
+      'ტაძარი': _MarkerStyle(Icons.church, Colors.brown),
+      'სასტუმრო': _MarkerStyle(Icons.hotel, Colors.cyan),
+      'პარკი': _MarkerStyle(Icons.park, Colors.lightGreen),
+      'სკვერი': _MarkerStyle(Icons.park, Colors.lightGreen),
+      'სალონი': _MarkerStyle(Icons.content_cut, Colors.pinkAccent),
+      'საცხობი': _MarkerStyle(Icons.bakery_dining, Colors.amber),
+      'ავტოსამრეცხაო': _MarkerStyle(Icons.local_car_wash, Colors.blueGrey),
+      'ფოსტა': _MarkerStyle(Icons.local_post_office, Colors.deepOrange),
+      'საავადმყოფო': _MarkerStyle(Icons.local_hospital, Colors.redAccent),
+      'სტომატოლოგი': _MarkerStyle(Icons.medical_services, Colors.teal),
+    };
+
+    if (knownStyles.containsKey(t)) {
+      return knownStyles[t]!;
+    }
+
+    // თუ ტიპი უცნობია, შევქმნათ უნიკალური ფერი სახელის ჰეშით
+    final int hash = t.hashCode;
+    final Color autoColor = Color((hash & 0xFFFFFF) | 0xFF000000).withOpacity(0.9);
+    return _MarkerStyle(Icons.location_on, autoColor);
+  }
+
   void _showFeatureInfo(Map<String, dynamic> attributes) {
+    // ტექნიკური სვეტები, რომლებიც არ გვინდა პოპაპში გამოჩნდეს
+    final technicalFields = ['fid', 'geom', 'geometry', 'lat', 'long', 'lon', 'id', 'ogc_fid'];
+    
+    // ვიღებთ ყველა სვეტს, გარდა ტექნიკურისა და ბინარულისა
+    final displayData = attributes.entries.where((e) {
+      final key = e.key.toLowerCase();
+      final val = e.value?.toString().trim() ?? '';
+      return !technicalFields.contains(key) && val.isNotEmpty && e.value is! Uint8List;
+    }).toList();
+
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.all(20),
-        child: ListView(
-          shrinkWrap: true,
-          children: attributes.entries
-            .where((e) => e.value != null && e.value is! Uint8List)
-            .map((e) => ListTile(
-                  title: Text(e.key.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
-                  subtitle: Text("${e.value}"),
-                  dense: true,
-                ))
-            .toList(),
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
+      builder: (context) => Container(
+        padding: EdgeInsets.only(
+          left: 20, right: 20, top: 10,
+          bottom: MediaQuery.of(context).padding.bottom + 20
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // პატარა ხაზი ზემოთ (Handle)
+            Container(
+              width: 40, height: 4,
+              margin: const EdgeInsets.only(bottom: 25),
+              decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10)),
+            ),
+            if (displayData.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(20),
+                child: Text("ინფორმაცია არ მოიძებნა", style: TextStyle(color: Colors.grey)),
+              )
+            else
+              ...displayData.map((e) => Padding(
+                padding: const EdgeInsets.only(bottom: 18),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      flex: 4,
+                      child: Text(
+                        e.key.toUpperCase(), 
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: Colors.indigo, letterSpacing: 0.5)
+                      ),
+                    ),
+                    Expanded(
+                      flex: 6,
+                      child: Text(
+                        "${e.value}", 
+                        style: const TextStyle(fontSize: 16, color: Colors.black87, fontWeight: FontWeight.w500)
+                      ),
+                    ),
+                  ],
+                ),
+              )).toList(),
+          ],
         ),
       ),
     );
@@ -158,6 +252,11 @@ class _MapScreenState extends State<MapScreen> {
         backgroundColor: Colors.indigo,
         centerTitle: true,
         actions: [
+          IconButton(
+            tooltip: "განახლება",
+            icon: const Icon(Icons.refresh, color: Colors.white),
+            onPressed: _loadGpkgData,
+          ),
           IconButton(
             tooltip: "ჩართვა/გამორთვა",
             icon: Icon(_showPoints ? Icons.visibility : Icons.visibility_off, color: Colors.white),
@@ -226,4 +325,10 @@ class _MapScreenState extends State<MapScreen> {
       child: Icon(icon, color: iconColor),
     );
   }
+}
+
+class _MarkerStyle {
+  final IconData icon;
+  final Color color;
+  _MarkerStyle(this.icon, this.color);
 }
