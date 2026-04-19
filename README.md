@@ -1,17 +1,40 @@
-# ivertubani
+# ივერთუბნის რუკა (Ivertubani Map)
 
-A new Flutter project.
+ინტერაქტიული რუკის აპლიკაცია, რომელიც შექმნილია **Flutter**-ის გამოყენებით. აპლიკაცია საშუალებას გაძლევთ დაათვალიეროთ OpenStreetMap და იმუშაოთ ლოკალურ გეომონაცემებთან (GeoPackage).
 
-## Getting Started
+## 🚀 ფუნქციები (Features)
 
-This project is a starting point for a Flutter application.
+- **OSM ინტეგრაცია:** დინამიური რუკა OpenStreetMap-ის ფილების (Tiles) გამოყენებით.
+- **GeoPackage (GPKG) მხარდაჭერა:** მონაცემების წაკითხვა ლოკალური SQLite/GPKG ბაზიდან.
+- **GPS ლოკაცია:** მომხმარებლის რეალურ დროში定位 (Real-time positioning) და რუკაზე ჩვენება.
+- **შრეების კონტროლი:** წერტილოვანი მონაცემების (POI) ჩართვა/გამორთვა.
+- **ატრიბუტების ნახვა:** წერტილზე დაჭერისას ინფორმაციის გამოტანა Bottom Sheet-ის სახით.
+- **რუკის კონტროლი:** Zoom In/Out, GPS ცენტრირება და წერტილებზე ავტომატური ფოკუსირება.
 
-A few resources to get you started if this is your first Flutter project:
+## 🛠 გამოყენებული ტექნოლოგიები (Tech Stack)
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+- **Framework:** [Flutter](https://flutter.dev)
+- **Mapping:** [flutter_map](https://pub.dev/packages/flutter_map)
+- **Database:** [sqflite](https://pub.dev/packages/sqflite) (GeoPackage parsing)
+- **Location:** [geolocator](https://pub.dev/packages/geolocator)
+- **Coordinate Systems:** WGS 84 (EPSG:4326)
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## 📦 დაყენება (Setup)
+
+1. დარწმუნდით, რომ გაქვთ Flutter დაინსტალირებული.
+2. ჩამოტვირთეთ პროექტი:
+   ```bash
+   git clone https://github.com/your-username/ivertubani.git
+   ```
+3. დააინსტალირეთ დამოკიდებულებები:
+   ```bash
+   flutter pub get
+   ```
+4. მოათავსეთ თქვენი `data.gpkg` ფაილი `assets/` საქაღალდეში.
+5. გაუშვით აპლიკაცია:
+   ```bash
+   flutter run
+   ```
+
+## 📝 შენიშვნა
+აპლიკაცია მორგებულია სპეციალურად ივერთუბნის ტერიტორიის კოორდინატებზე, თუმცა მისი გამოყენება შესაძლებელია ნებისმიერი სხვა GeoPackage მონაცემებისთვისაც.
