@@ -1,14 +1,23 @@
 import 'dart:io';
+import 'dart:convert';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:sqflite/sqflite.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart'; // დავამატოთ ეს
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:geolocator/geolocator.dart';
 
 void main() {
+  // Windows-ისთვის და სხვა Desktop-ისთვის SQLite-ის ინიციალიზაცია
+  if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+  }
+  
   runApp(const MyApp());
 }
 
@@ -60,7 +69,7 @@ class _MapScreenState extends State<MapScreen> {
     super.initState();
     _mapController = MapController();
     _enabledGroups = _categoryGroups.keys.toSet(); 
-    _loadGpkgData();
+    _loadData();
     _determinePosition();
   }
 
@@ -80,22 +89,39 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-  Future<void> _loadGpkgData() async {
+  Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
-      final directory = await getApplicationDocumentsDirectory();
-      final path = p.join(directory.path, 'data.gpkg');
-      final file = File(path);
-      if (await file.exists()) await file.delete();
-      ByteData data = await rootBundle.load('assets/data.gpkg');
-      await file.writeAsBytes(data.buffer.asUint8List());
+      if (kIsWeb) {
+        final String response = await rootBundle.loadString('assets/data.geojson');
+        final Map<String, dynamic> data = json.decode(response);
+        final features = data['features'] as List<dynamic>;
+        
+        _allData = features.map((f) {
+          final props = Map<String, dynamic>.from(f['properties']);
+          final geometry = f['geometry'];
+          if (geometry != null && geometry['type'] == 'Point') {
+            final coords = geometry['coordinates'];
+            props['long'] = coords[0];
+            props['lat'] = coords[1];
+          }
+          return props;
+        }).toList();
+      } else {
+        final directory = await getApplicationDocumentsDirectory();
+        final path = p.join(directory.path, 'data.gpkg');
+        final file = File(path);
+        if (await file.exists()) await file.delete();
+        ByteData data = await rootBundle.load('assets/data.gpkg');
+        await file.writeAsBytes(data.buffer.asUint8List());
 
-      final db = await openDatabase(path);
-      _allData = await db.query('poi');
-      await db.close();
+        final db = await openDatabase(path);
+        _allData = await db.query('poi');
+        await db.close();
+      }
       _filterMarkers();
     } catch (e) {
-      debugPrint("Database Error: $e");
+      debugPrint("Data Loading Error: $e");
       setState(() => _isLoading = false);
     }
   }
@@ -190,7 +216,6 @@ class _MapScreenState extends State<MapScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // ვიღებთ სისტემური ჟესტების დაშორებას ქვემოდან
     final double systemBottom = MediaQuery.of(context).systemGestureInsets.bottom;
 
     return Scaffold(
@@ -200,7 +225,7 @@ class _MapScreenState extends State<MapScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: _loadGpkgData,
+            onPressed: _loadData,
             tooltip: 'განახლება',
           ),
           Builder(builder: (context) => IconButton(
@@ -284,9 +309,7 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Widget _buildDrawer() {
-    // მენიუშიც ვიყენებთ იმავე დაშორებას
     final double systemBottom = MediaQuery.of(context).systemGestureInsets.bottom;
-
     return Drawer(
       child: Column(
         children: [
@@ -296,7 +319,6 @@ class _MapScreenState extends State<MapScreen> {
           ),
           Expanded(
             child: ListView(
-              // აქ ვამატებთ ფადინგს, რომ ბოლო ელემენტი არ დაეფაროს ჟესტების ზოლს
               padding: EdgeInsets.only(bottom: systemBottom + 20),
               children: [
                 ExpansionTile(
