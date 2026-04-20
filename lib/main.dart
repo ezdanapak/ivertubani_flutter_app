@@ -190,6 +190,9 @@ class _MapScreenState extends State<MapScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // ვიღებთ სისტემური ჟესტების დაშორებას ქვემოდან
+    final double systemBottom = MediaQuery.of(context).systemGestureInsets.bottom;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('ივერთუბანი', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -208,76 +211,82 @@ class _MapScreenState extends State<MapScreen> {
         ],
       ),
       endDrawer: _buildDrawer(), 
-      body: Stack(
-        children: [
-          FlutterMap(
-            mapController: _mapController,
-            options: MapOptions(initialCenter: _initialLocation, initialZoom: 15),
-            children: [
-              TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.example.ivertubani',
-              ),
-              MarkerLayer(markers: _markers),
-              if (_currentLocation != null) MarkerLayer(markers: [Marker(point: _currentLocation!, child: const Icon(Icons.my_location, color: Colors.blue, size: 25))]),
-            ],
-          ),
-          if (_isLoading) const Center(child: CircularProgressIndicator()),
-          
-          Positioned(
-            bottom: 20, left: 15, right: 80,
-            child: Container(
-              height: 50,
-              padding: const EdgeInsets.symmetric(horizontal: 15),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(25), boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 8)]),
-              child: TextField(
-                decoration: const InputDecoration(hintText: "ძებნა...", border: InputBorder.none, icon: Icon(Icons.search, color: Colors.indigo)),
-                onChanged: (val) {
-                  _searchQuery = val.toLowerCase();
-                  _filterMarkers();
-                },
-              ),
-            ),
-          ),
-
-          Positioned(
-            bottom: 20, right: 15,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+      body: Padding(
+        padding: EdgeInsets.only(bottom: systemBottom),
+        child: Stack(
+          children: [
+            FlutterMap(
+              mapController: _mapController,
+              options: MapOptions(initialCenter: _initialLocation, initialZoom: 15),
               children: [
-                _mapFab(Icons.add, () => _mapController.move(_mapController.camera.center, _mapController.camera.zoom + 1), "zoom_in"),
-                const SizedBox(height: 8),
-                _mapFab(Icons.remove, () => _mapController.move(_mapController.camera.center, _mapController.camera.zoom - 1), "zoom_out"),
-                const SizedBox(height: 8),
-                _mapFab(Icons.center_focus_strong, () {
-                  if (_markers.isNotEmpty) {
-                    final points = _markers.map((m) => m.point).toList();
-                    if (points.length == 1) {
-                      _mapController.move(points.first, 18);
-                    } else {
-                      final bounds = LatLngBounds.fromPoints(points);
-                      _mapController.fitCamera(
-                        CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(70)),
-                      );
-                    }
-                  } else {
-                    _mapController.move(_initialLocation, 15);
-                  }
-                }, "focus", color: Colors.orange, iconColor: Colors.white),
-                const SizedBox(height: 8),
-                _mapFab(Icons.gps_fixed, () async {
-                  await _determinePosition();
-                  if (_currentLocation != null) _mapController.move(_currentLocation!, 17);
-                }, "gps", color: Colors.indigo, iconColor: Colors.white),
+                TileLayer(
+                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'com.example.ivertubani',
+                ),
+                MarkerLayer(markers: _markers),
+                if (_currentLocation != null) MarkerLayer(markers: [Marker(point: _currentLocation!, child: const Icon(Icons.my_location, color: Colors.blue, size: 25))]),
               ],
             ),
-          )
-        ],
+            if (_isLoading) const Center(child: CircularProgressIndicator()),
+            
+            Positioned(
+              bottom: 10, left: 15, right: 80,
+              child: Container(
+                height: 50,
+                padding: const EdgeInsets.symmetric(horizontal: 15),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(25), boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 8)]),
+                child: TextField(
+                  decoration: const InputDecoration(hintText: "ძებნა...", border: InputBorder.none, icon: Icon(Icons.search, color: Colors.indigo)),
+                  onChanged: (val) {
+                    _searchQuery = val.toLowerCase();
+                    _filterMarkers();
+                  },
+                ),
+              ),
+            ),
+
+            Positioned(
+              bottom: 10, right: 15,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _mapFab(Icons.add, () => _mapController.move(_mapController.camera.center, _mapController.camera.zoom + 1), "zoom_in"),
+                  const SizedBox(height: 8),
+                  _mapFab(Icons.remove, () => _mapController.move(_mapController.camera.center, _mapController.camera.zoom - 1), "zoom_out"),
+                  const SizedBox(height: 8),
+                  _mapFab(Icons.center_focus_strong, () {
+                    if (_markers.isNotEmpty) {
+                      final points = _markers.map((m) => m.point).toList();
+                      if (points.length == 1) {
+                        _mapController.move(points.first, 18);
+                      } else {
+                        final bounds = LatLngBounds.fromPoints(points);
+                        _mapController.fitCamera(
+                          CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(70)),
+                        );
+                      }
+                    } else {
+                      _mapController.move(_initialLocation, 15);
+                    }
+                  }, "focus", color: Colors.orange, iconColor: Colors.white),
+                  const SizedBox(height: 8),
+                  _mapFab(Icons.gps_fixed, () async {
+                    await _determinePosition();
+                    if (_currentLocation != null) _mapController.move(_currentLocation!, 17);
+                  }, "gps", color: Colors.indigo, iconColor: Colors.white),
+                ],
+              ),
+            )
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildDrawer() {
+    // მენიუშიც ვიყენებთ იმავე დაშორებას
+    final double systemBottom = MediaQuery.of(context).systemGestureInsets.bottom;
+
     return Drawer(
       child: Column(
         children: [
@@ -287,6 +296,8 @@ class _MapScreenState extends State<MapScreen> {
           ),
           Expanded(
             child: ListView(
+              // აქ ვამატებთ ფადინგს, რომ ბოლო ელემენტი არ დაეფაროს ჟესტების ზოლს
+              padding: EdgeInsets.only(bottom: systemBottom + 20),
               children: [
                 ExpansionTile(
                   leading: const Icon(Icons.filter_list, color: Colors.indigo),
