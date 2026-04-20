@@ -6,24 +6,23 @@ import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:sqflite/sqflite.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart'; // დავამატოთ ეს
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:geolocator/geolocator.dart';
+import 'package:flutter_map_cache/flutter_map_cache.dart';
+import 'package:dio_cache_interceptor_file_store/dio_cache_interceptor_file_store.dart';
 
 void main() {
-  // Windows-ისთვის და სხვა Desktop-ისთვის SQLite-ის ინიციალიზაცია
   if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
   }
-  
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -40,7 +39,6 @@ class MyApp extends StatelessWidget {
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
-
   @override
   State<MapScreen> createState() => _MapScreenState();
 }
@@ -56,6 +54,9 @@ class _MapScreenState extends State<MapScreen> {
   final LatLng _initialLocation = const LatLng(41.7301548, 44.8353731);
   LatLng? _currentLocation;
 
+  // გასწორებული კლასის სახელი: FileCacheStore
+  Future<FileCacheStore>? _cacheStoreFuture;
+
   final Map<String, List<String>> _categoryGroups = {
     'განათლება': ['ინგლისური', 'რუსული', 'ცეკვა', 'მასწავლებელი', 'სკოლა', 'ბაღი'],
     'ავტომობილი': ['ავტოსამრეცხაო', 'ავტოსახელოსნო', 'გაზგასამართი', 'ბენზინგასამართი', 'გასამართი სადგური'],
@@ -69,8 +70,15 @@ class _MapScreenState extends State<MapScreen> {
     super.initState();
     _mapController = MapController();
     _enabledGroups = _categoryGroups.keys.toSet(); 
+    _initCache();
     _loadData();
     _determinePosition();
+  }
+
+  void _initCache() {
+    _cacheStoreFuture = getTemporaryDirectory().then((dir) {
+      return FileCacheStore(p.join(dir.path, 'map_cache'));
+    });
   }
 
   Future<void> _determinePosition() async {
@@ -96,7 +104,6 @@ class _MapScreenState extends State<MapScreen> {
         final String response = await rootBundle.loadString('assets/data.geojson');
         final Map<String, dynamic> data = json.decode(response);
         final features = data['features'] as List<dynamic>;
-        
         _allData = features.map((f) {
           final props = Map<String, dynamic>.from(f['properties']);
           final geometry = f['geometry'];
@@ -114,7 +121,6 @@ class _MapScreenState extends State<MapScreen> {
         if (await file.exists()) await file.delete();
         ByteData data = await rootBundle.load('assets/data.gpkg');
         await file.writeAsBytes(data.buffer.asUint8List());
-
         final db = await openDatabase(path);
         _allData = await db.query('poi');
         await db.close();
@@ -134,16 +140,13 @@ class _MapScreenState extends State<MapScreen> {
       final type = (row['Type'] ?? row['type'] ?? 'სხვა').toString().toLowerCase().trim();
       final name = (row['Name'] ?? row['name'] ?? '').toString().toLowerCase();
       final desc = (row['Description'] ?? row['description'] ?? '').toString().toLowerCase();
-
       String? parentGroup;
       _categoryGroups.forEach((group, types) {
         if (types.any((t) => t.toLowerCase() == type)) parentGroup = group;
       });
       parentGroup ??= 'სხვა';
-
       bool matchesGroup = _enabledGroups.contains(parentGroup);
       bool matchesSearch = _searchQuery.isEmpty || name.contains(_searchQuery) || desc.contains(_searchQuery) || type.contains(_searchQuery);
-
       if (lat != null && lon != null && matchesGroup && matchesSearch) {
         final style = _getMarkerStyle(type);
         newMarkers.add(
@@ -174,6 +177,7 @@ class _MapScreenState extends State<MapScreen> {
     if (t.contains('გასამართი')) return _MarkerStyle(Icons.local_gas_station, Colors.orangeAccent);
     if (t.contains('ეკლესია') || t.contains('ტაძარი')) return _MarkerStyle(Icons.church, Colors.brown);
     if (t.contains('პარკი') || t.contains('სკვერი')) return _MarkerStyle(Icons.park, Colors.lightGreen);
+    if (t.contains('იყიდება')) return _MarkerStyle(Icons.sell, Colors.orangeAccent);
     final int hash = t.hashCode;
     final Color autoColor = Color((hash & 0xFFFFFF) | 0xFF000000).withOpacity(0.9);
     return _MarkerStyle(Icons.location_on, autoColor);
@@ -186,7 +190,6 @@ class _MapScreenState extends State<MapScreen> {
       final val = e.value?.toString().trim() ?? '';
       return !technicalFields.contains(key) && val.isNotEmpty && e.value is! Uint8List;
     }).toList();
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -216,100 +219,90 @@ class _MapScreenState extends State<MapScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final double systemBottom = MediaQuery.of(context).systemGestureInsets.bottom;
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('ივერთუბანი', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.indigo,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: _loadData,
-            tooltip: 'განახლება',
-          ),
-          Builder(builder: (context) => IconButton(
-            icon: const Icon(Icons.menu, color: Colors.white),
-            onPressed: () => Scaffold.of(context).openEndDrawer(),
-            tooltip: 'მენიუ',
-          )),
+          IconButton(icon: const Icon(Icons.refresh, color: Colors.white), onPressed: _loadData, tooltip: 'განახლება'),
+          Builder(builder: (context) => IconButton(icon: const Icon(Icons.menu, color: Colors.white), onPressed: () => Scaffold.of(context).openEndDrawer(), tooltip: 'მენიუ')),
         ],
       ),
       endDrawer: _buildDrawer(), 
-      body: Padding(
-        padding: EdgeInsets.only(bottom: systemBottom),
-        child: Stack(
-          children: [
-            FlutterMap(
-              mapController: _mapController,
-              options: MapOptions(initialCenter: _initialLocation, initialZoom: 15),
+      body: Stack(
+        children: [
+          FutureBuilder<FileCacheStore>(
+            future: _cacheStoreFuture,
+            builder: (context, snapshot) {
+              return FlutterMap(
+                mapController: _mapController,
+                options: MapOptions(initialCenter: _initialLocation, initialZoom: 15),
+                children: [
+                  TileLayer(
+                    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    userAgentPackageName: 'com.example.ivertubani',
+                    tileProvider: snapshot.hasData 
+                        ? CachedTileProvider(store: snapshot.data!) 
+                        : NetworkTileProvider(),
+                  ),
+                  MarkerLayer(markers: _markers),
+                  if (_currentLocation != null) MarkerLayer(markers: [Marker(point: _currentLocation!, child: const Icon(Icons.my_location, color: Colors.blue, size: 25))]),
+                ],
+              );
+            }
+          ),
+          if (_isLoading) const Center(child: CircularProgressIndicator()),
+          Positioned(
+            bottom: 20, left: 15, right: 80,
+            child: Container(
+              height: 50,
+              padding: const EdgeInsets.symmetric(horizontal: 15),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(25), boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 8)]),
+              child: TextField(
+                decoration: const InputDecoration(hintText: "ძებნა...", border: InputBorder.none, icon: Icon(Icons.search, color: Colors.indigo)),
+                onChanged: (val) {
+                  _searchQuery = val.toLowerCase();
+                  _filterMarkers();
+                },
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: 20, right: 15,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                TileLayer(
-                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  userAgentPackageName: 'com.example.ivertubani',
-                ),
-                MarkerLayer(markers: _markers),
-                if (_currentLocation != null) MarkerLayer(markers: [Marker(point: _currentLocation!, child: const Icon(Icons.my_location, color: Colors.blue, size: 25))]),
+                _mapFab(Icons.add, () => _mapController.move(_mapController.camera.center, _mapController.camera.zoom + 1), "zoom_in"),
+                const SizedBox(height: 8),
+                _mapFab(Icons.remove, () => _mapController.move(_mapController.camera.center, _mapController.camera.zoom - 1), "zoom_out"),
+                const SizedBox(height: 8),
+                _mapFab(Icons.center_focus_strong, () {
+                  if (_markers.isNotEmpty) {
+                    final points = _markers.map((m) => m.point).toList();
+                    if (points.length == 1) {
+                      _mapController.move(points.first, 18);
+                    } else {
+                      final bounds = LatLngBounds.fromPoints(points);
+                      _mapController.fitCamera(CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(70)));
+                    }
+                  } else {
+                    _mapController.move(_initialLocation, 15);
+                  }
+                }, "focus", color: Colors.orange, iconColor: Colors.white),
+                const SizedBox(height: 8),
+                _mapFab(Icons.gps_fixed, () async {
+                  await _determinePosition();
+                  if (_currentLocation != null) _mapController.move(_currentLocation!, 17);
+                }, "gps", color: Colors.indigo, iconColor: Colors.white),
               ],
             ),
-            if (_isLoading) const Center(child: CircularProgressIndicator()),
-            
-            Positioned(
-              bottom: 10, left: 15, right: 80,
-              child: Container(
-                height: 50,
-                padding: const EdgeInsets.symmetric(horizontal: 15),
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(25), boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 8)]),
-                child: TextField(
-                  decoration: const InputDecoration(hintText: "ძებნა...", border: InputBorder.none, icon: Icon(Icons.search, color: Colors.indigo)),
-                  onChanged: (val) {
-                    _searchQuery = val.toLowerCase();
-                    _filterMarkers();
-                  },
-                ),
-              ),
-            ),
-
-            Positioned(
-              bottom: 10, right: 15,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _mapFab(Icons.add, () => _mapController.move(_mapController.camera.center, _mapController.camera.zoom + 1), "zoom_in"),
-                  const SizedBox(height: 8),
-                  _mapFab(Icons.remove, () => _mapController.move(_mapController.camera.center, _mapController.camera.zoom - 1), "zoom_out"),
-                  const SizedBox(height: 8),
-                  _mapFab(Icons.center_focus_strong, () {
-                    if (_markers.isNotEmpty) {
-                      final points = _markers.map((m) => m.point).toList();
-                      if (points.length == 1) {
-                        _mapController.move(points.first, 18);
-                      } else {
-                        final bounds = LatLngBounds.fromPoints(points);
-                        _mapController.fitCamera(
-                          CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(70)),
-                        );
-                      }
-                    } else {
-                      _mapController.move(_initialLocation, 15);
-                    }
-                  }, "focus", color: Colors.orange, iconColor: Colors.white),
-                  const SizedBox(height: 8),
-                  _mapFab(Icons.gps_fixed, () async {
-                    await _determinePosition();
-                    if (_currentLocation != null) _mapController.move(_currentLocation!, 17);
-                  }, "gps", color: Colors.indigo, iconColor: Colors.white),
-                ],
-              ),
-            )
-          ],
-        ),
+          )
+        ],
       ),
     );
   }
 
   Widget _buildDrawer() {
-    final double systemBottom = MediaQuery.of(context).systemGestureInsets.bottom;
     return Drawer(
       child: Column(
         children: [
@@ -319,7 +312,6 @@ class _MapScreenState extends State<MapScreen> {
           ),
           Expanded(
             child: ListView(
-              padding: EdgeInsets.only(bottom: systemBottom + 20),
               children: [
                 ExpansionTile(
                   leading: const Icon(Icons.filter_list, color: Colors.indigo),
@@ -353,13 +345,7 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Widget _mapFab(IconData icon, VoidCallback onPressed, String tag, {Color color = Colors.white, Color iconColor = Colors.indigo}) {
-    return FloatingActionButton(
-      mini: true, 
-      heroTag: tag, 
-      backgroundColor: color, 
-      onPressed: onPressed, 
-      child: Icon(icon, color: iconColor, size: 20)
-    );
+    return FloatingActionButton(mini: true, heroTag: tag, backgroundColor: color, onPressed: onPressed, child: Icon(icon, color: iconColor, size: 20));
   }
 }
 
