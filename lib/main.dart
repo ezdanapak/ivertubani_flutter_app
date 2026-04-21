@@ -178,6 +178,7 @@ class _MapScreenState extends State<MapScreen> {
     if (t.contains('ეკლესია') || t.contains('ტაძარი')) return _MarkerStyle(Icons.church, Colors.brown);
     if (t.contains('პარკი') || t.contains('სკვერი')) return _MarkerStyle(Icons.park, Colors.lightGreen);
     if (t.contains('იყიდება')) return _MarkerStyle(Icons.sell, Colors.orangeAccent);
+    if (t.contains('სილამაზის სალონი')) return _MarkerStyle(Icons.face, Colors.orangeAccent);
     final int hash = t.hashCode;
     final Color autoColor = Color((hash & 0xFFFFFF) | 0xFF000000).withOpacity(0.9);
     return _MarkerStyle(Icons.location_on, autoColor);
