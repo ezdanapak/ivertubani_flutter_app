@@ -12,8 +12,10 @@ import 'package:path/path.dart' as p;
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_map_cache/flutter_map_cache.dart';
 import 'package:dio_cache_interceptor_file_store/dio_cache_interceptor_file_store.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
   if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
@@ -53,8 +55,6 @@ class _MapScreenState extends State<MapScreen> {
   
   final LatLng _initialLocation = const LatLng(41.7301548, 44.8353731);
   LatLng? _currentLocation;
-
-  // გასწორებული კლასის სახელი: FileCacheStore
   Future<FileCacheStore>? _cacheStoreFuture;
 
   final Map<String, List<String>> _categoryGroups = {
@@ -79,6 +79,22 @@ class _MapScreenState extends State<MapScreen> {
     _cacheStoreFuture = getTemporaryDirectory().then((dir) {
       return FileCacheStore(p.join(dir.path, 'map_cache'));
     });
+  }
+
+  Future<void> _launchGoogleForm() async {
+    final Uri url = Uri.parse('https://docs.google.com/forms/d/e/1FAIpQLSd9--oSe4vAVGW5ju1Wf4F0TRR56VO0KHTtXGbL3daJbW8fUA/viewform?usp=dialog');
+    try {
+      if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+        throw Exception('Could not launch $url');
+      }
+    } catch (e) {
+      debugPrint("URL Launcher Error: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('ვერ მოხერხდა ბმულის გახსნა')),
+        );
+      }
+    }
   }
 
   Future<void> _determinePosition() async {
@@ -191,6 +207,7 @@ class _MapScreenState extends State<MapScreen> {
       final val = e.value?.toString().trim() ?? '';
       return !technicalFields.contains(key) && val.isNotEmpty && e.value is! Uint8List;
     }).toList();
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -202,16 +219,38 @@ class _MapScreenState extends State<MapScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(width: 40, height: 4, margin: const EdgeInsets.only(bottom: 25), decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10))),
-            ...displayData.map((e) => Padding(
-              padding: const EdgeInsets.only(bottom: 15),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(flex: 4, child: Text(e.key.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: Colors.indigo))),
-                  Expanded(flex: 6, child: Text("${e.value}", style: const TextStyle(fontSize: 15, color: Colors.black87))),
-                ],
-              ),
-            )).toList(),
+            ...displayData.map((e) {
+              // ვამოწმებთ არის თუ არა მნიშვნელობა ბმული (Google Map)
+              final valString = e.value.toString().trim();
+              final isLink = valString.startsWith('http') || e.key.toLowerCase().contains('google map');
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 15),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(flex: 4, child: Text(e.key.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: Colors.indigo))),
+                    Expanded(
+                      flex: 6, 
+                      child: isLink 
+                        ? GestureDetector(
+                            onTap: () async {
+                              final Uri url = Uri.parse(valString);
+                              if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+                                debugPrint('Could not launch $url');
+                              }
+                            },
+                            child: const Text(
+                              "იხილეთ Google Maps-ზე ➔", 
+                              style: TextStyle(fontSize: 15, color: Colors.blue, fontWeight: FontWeight.bold, decoration: TextDecoration.underline)
+                            ),
+                          )
+                        : Text(valString, style: const TextStyle(fontSize: 15, color: Colors.black87)),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
           ],
         ),
       ),
@@ -220,90 +259,100 @@ class _MapScreenState extends State<MapScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final double systemBottom = MediaQuery.of(context).systemGestureInsets.bottom;
     return Scaffold(
       appBar: AppBar(
         title: const Text('ივერთუბანი', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.indigo,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.add_location_alt, color: Colors.white), 
+            onPressed: _launchGoogleForm,
+            tooltip: 'წერტილის დამატება',
+          ),
           IconButton(icon: const Icon(Icons.refresh, color: Colors.white), onPressed: _loadData, tooltip: 'განახლება'),
           Builder(builder: (context) => IconButton(icon: const Icon(Icons.menu, color: Colors.white), onPressed: () => Scaffold.of(context).openEndDrawer(), tooltip: 'მენიუ')),
         ],
       ),
       endDrawer: _buildDrawer(), 
-      body: Stack(
-        children: [
-          FutureBuilder<FileCacheStore>(
-            future: _cacheStoreFuture,
-            builder: (context, snapshot) {
-              return FlutterMap(
-                mapController: _mapController,
-                options: MapOptions(initialCenter: _initialLocation, initialZoom: 15),
-                children: [
-                  TileLayer(
-                    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    userAgentPackageName: 'com.example.ivertubani',
-                    tileProvider: snapshot.hasData 
-                        ? CachedTileProvider(store: snapshot.data!) 
-                        : NetworkTileProvider(),
-                  ),
-                  MarkerLayer(markers: _markers),
-                  if (_currentLocation != null) MarkerLayer(markers: [Marker(point: _currentLocation!, child: const Icon(Icons.my_location, color: Colors.blue, size: 25))]),
-                ],
-              );
-            }
-          ),
-          if (_isLoading) const Center(child: CircularProgressIndicator()),
-          Positioned(
-            bottom: 20, left: 15, right: 80,
-            child: Container(
-              height: 50,
-              padding: const EdgeInsets.symmetric(horizontal: 15),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(25), boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 8)]),
-              child: TextField(
-                decoration: const InputDecoration(hintText: "ძებნა...", border: InputBorder.none, icon: Icon(Icons.search, color: Colors.indigo)),
-                onChanged: (val) {
-                  _searchQuery = val.toLowerCase();
-                  _filterMarkers();
-                },
+      body: Padding(
+        padding: EdgeInsets.only(bottom: systemBottom),
+        child: Stack(
+          children: [
+            FutureBuilder<FileCacheStore>(
+              future: _cacheStoreFuture,
+              builder: (context, snapshot) {
+                return FlutterMap(
+                  mapController: _mapController,
+                  options: MapOptions(initialCenter: _initialLocation, initialZoom: 15),
+                  children: [
+                    TileLayer(
+                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName: 'com.example.ivertubani',
+                      tileProvider: snapshot.hasData 
+                          ? CachedTileProvider(store: snapshot.data!) 
+                          : NetworkTileProvider(),
+                    ),
+                    MarkerLayer(markers: _markers),
+                    if (_currentLocation != null) MarkerLayer(markers: [Marker(point: _currentLocation!, child: const Icon(Icons.my_location, color: Colors.blue, size: 25))]),
+                  ],
+                );
+              }
+            ),
+            if (_isLoading) const Center(child: CircularProgressIndicator()),
+            Positioned(
+              bottom: 10, left: 15, right: 80,
+              child: Container(
+                height: 50,
+                padding: const EdgeInsets.symmetric(horizontal: 15),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(25), boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 8)]),
+                child: TextField(
+                  decoration: const InputDecoration(hintText: "ძებნა...", border: InputBorder.none, icon: Icon(Icons.search, color: Colors.indigo)),
+                  onChanged: (val) {
+                    _searchQuery = val.toLowerCase();
+                    _filterMarkers();
+                  },
+                ),
               ),
             ),
-          ),
-          Positioned(
-            bottom: 20, right: 15,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _mapFab(Icons.add, () => _mapController.move(_mapController.camera.center, _mapController.camera.zoom + 1), "zoom_in"),
-                const SizedBox(height: 8),
-                _mapFab(Icons.remove, () => _mapController.move(_mapController.camera.center, _mapController.camera.zoom - 1), "zoom_out"),
-                const SizedBox(height: 8),
-                _mapFab(Icons.center_focus_strong, () {
-                  if (_markers.isNotEmpty) {
-                    final points = _markers.map((m) => m.point).toList();
-                    if (points.length == 1) {
-                      _mapController.move(points.first, 18);
+            Positioned(
+              bottom: 10, right: 15,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _mapFab(Icons.add, () => _mapController.move(_mapController.camera.center, _mapController.camera.zoom + 1), "zoom_in"),
+                  const SizedBox(height: 8),
+                  _mapFab(Icons.remove, () => _mapController.move(_mapController.camera.center, _mapController.camera.zoom - 1), "zoom_out"),
+                  const SizedBox(height: 8),
+                  _mapFab(Icons.center_focus_strong, () {
+                    if (_markers.isNotEmpty) {
+                      final points = _markers.map((m) => m.point).toList();
+                      if (points.length == 1) {
+                        _mapController.move(points.first, 18);
+                      } else {
+                        final bounds = LatLngBounds.fromPoints(points);
+                        _mapController.fitCamera(CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(70)));
+                      }
                     } else {
-                      final bounds = LatLngBounds.fromPoints(points);
-                      _mapController.fitCamera(CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(70)));
+                      _mapController.move(_initialLocation, 15);
                     }
-                  } else {
-                    _mapController.move(_initialLocation, 15);
-                  }
-                }, "focus", color: Colors.orange, iconColor: Colors.white),
-                const SizedBox(height: 8),
-                _mapFab(Icons.gps_fixed, () async {
-                  await _determinePosition();
-                  if (_currentLocation != null) _mapController.move(_currentLocation!, 17);
-                }, "gps", color: Colors.indigo, iconColor: Colors.white),
-              ],
-            ),
-          )
-        ],
+                  }, "focus", color: Colors.orange, iconColor: Colors.white),
+                  const SizedBox(height: 8),
+                  _mapFab(Icons.gps_fixed, () async {
+                    await _determinePosition();
+                    if (_currentLocation != null) _mapController.move(_currentLocation!, 17);
+                  }, "gps", color: Colors.indigo, iconColor: Colors.white),
+                ],
+              ),
+            )
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildDrawer() {
+    final double systemBottom = MediaQuery.of(context).systemGestureInsets.bottom;
     return Drawer(
       child: Column(
         children: [
@@ -313,6 +362,7 @@ class _MapScreenState extends State<MapScreen> {
           ),
           Expanded(
             child: ListView(
+              padding: EdgeInsets.only(bottom: systemBottom + 20),
               children: [
                 ExpansionTile(
                   leading: const Icon(Icons.filter_list, color: Colors.indigo),
