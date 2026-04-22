@@ -72,4 +72,4 @@
 *   **Mapping:** [flutter_map](https://pub.dev/packages/flutter_map)
 
 ---
-© 2026 გიორგი. ყველა უფლება დაცულია.
+© 2026 ezdanapak. ყველა უფლება დაცულია.
