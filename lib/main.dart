@@ -387,7 +387,7 @@ class _MapScreenState extends State<MapScreen> {
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('ივერთუბნის რუკა v1.0\nგანახლებულია: 2026'),
+                      const Text('ივერთუბნის რუკა v1.0\nგანახლებულია: 22.04.2026'),
                       const SizedBox(height: 4),
                       GestureDetector(
                         onTap: () async {
