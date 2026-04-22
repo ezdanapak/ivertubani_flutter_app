@@ -3,7 +3,10 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches:
-      - master # აქ მიუთითეთ თქვენი მთავარი ბრანჩის სახელი (master ან main)
+      - master
+
+permissions:
+  contents: write
 
 jobs:
   build:
