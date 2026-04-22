@@ -220,7 +220,6 @@ class _MapScreenState extends State<MapScreen> {
           children: [
             Container(width: 40, height: 4, margin: const EdgeInsets.only(bottom: 25), decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10))),
             ...displayData.map((e) {
-              // ვამოწმებთ არის თუ არა მნიშვნელობა ბმული (Google Map)
               final valString = e.value.toString().trim();
               final isLink = valString.startsWith('http') || e.key.toLowerCase().contains('google map');
 
@@ -382,10 +381,32 @@ class _MapScreenState extends State<MapScreen> {
                   }).toList(),
                 ),
                 const Divider(),
-                const ListTile(
-                  leading: Icon(Icons.info_outline, color: Colors.indigo),
-                  title: Text('აპლიკაციის შესახებ'),
-                  subtitle: Text('ივერთუბნის რუკა v1.0\nავტორი: ივერთუბნის გუნდი\nგანახლებულია: 2024'),
+                ListTile(
+                  leading: const Icon(Icons.info_outline, color: Colors.indigo),
+                  title: const Text('აპლიკაციის შესახებ'),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('ივერთუბნის რუკა v1.0\nგანახლებულია: 2026'),
+                      const SizedBox(height: 4),
+                      GestureDetector(
+                        onTap: () async {
+                          final Uri url = Uri.parse('https://github.com/ezdanapak/ivertubani_flutter_app');
+                          if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+                            debugPrint('Could not launch $url');
+                          }
+                        },
+                        child: const Text(
+                          'ავტორი: ezdanapak ➔',
+                          style: TextStyle(
+                            color: Colors.blue,
+                            decoration: TextDecoration.underline,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
