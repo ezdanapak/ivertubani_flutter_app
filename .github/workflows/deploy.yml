@@ -27,6 +27,9 @@ jobs:
       - name: Build Web
         run: flutter build web --release --base-href "/"
 
+      - name: Disable Service Worker (Fix Cache Issues)
+        run: rm build/web/flutter_service_worker.js
+
       - name: Create CNAME
         run: echo "ivertubani.qgis.ge" > build/web/CNAME
 
