@@ -57,7 +57,6 @@ class _MapScreenState extends State<MapScreen> {
   LatLng? _currentLocation;
   Future<FileCacheStore>? _cacheStoreFuture;
 
-  // განახლებული კატეგორიები GeoJSON-ის მიხედვით
   final Map<String, List<String>> _categoryGroups = {
     'განათლება': ['განათლება'],
     'ტრანსპორტი': ['ტრანსპორტი', 'ავტომობილი'],
@@ -203,7 +202,6 @@ class _MapScreenState extends State<MapScreen> {
       final lat = double.tryParse(row['lat']?.toString() ?? '');
       final lon = double.tryParse(row['long']?.toString() ?? row['lon']?.toString() ?? '');
       
-      // ვიღებთ კატეგორიას (categories) ან ტიპს (type)
       final category = (row['categories'] ?? row['Categories'] ?? row['Type'] ?? row['type'] ?? 'სხვა').toString().trim();
       final type = (row['Type'] ?? row['type'] ?? 'სხვა').toString().toLowerCase().trim();
       final name = (row['Name'] ?? row['name'] ?? '').toString().toLowerCase();
@@ -314,7 +312,19 @@ class _MapScreenState extends State<MapScreen> {
                               style: TextStyle(fontSize: 15, color: Colors.blue, fontWeight: FontWeight.bold, decoration: TextDecoration.underline)
                             ),
                           )
-                        : Text(valString, style: const TextStyle(fontSize: 15, color: Colors.black87)),
+                        : GestureDetector(
+                            onTap: () {
+                              Clipboard.setData(ClipboardData(text: valString));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('დაკოპირდა: $valString'),
+                                  duration: const Duration(seconds: 2),
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                            },
+                            child: Text(valString, style: const TextStyle(fontSize: 15, color: Colors.black87)),
+                          ),
                     ),
                   ],
                 ),

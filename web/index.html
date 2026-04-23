@@ -13,7 +13,7 @@
   <meta http-equiv="Expires" content="0" />
 
   <!-- iOS meta tags & icons -->
-  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="ივერთუბანი">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
@@ -32,7 +32,6 @@
 </head>
 <body>
   <script>
-    // ეს სკრიპტი აიძულებს ბრაუზერს განაახლოს Service Worker-ი მომენტალურად
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function () {
         navigator.serviceWorker.register('flutter_service_worker.js?v=' + new Date().getTime());
