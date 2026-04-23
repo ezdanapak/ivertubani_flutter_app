@@ -57,12 +57,18 @@ class _MapScreenState extends State<MapScreen> {
   LatLng? _currentLocation;
   Future<FileCacheStore>? _cacheStoreFuture;
 
+  // განახლებული კატეგორიები GeoJSON-ის მიხედვით
   final Map<String, List<String>> _categoryGroups = {
-    'განათლება': ['ინგლისური', 'რუსული', 'ცეკვა', 'მასწავლებელი', 'სკოლა', 'ბაღი'],
-    'ავტომობილი': ['ავტოსამრეცხაო', 'ავტოსახელოსნო', 'გაზგასამართი', 'ბენზინგასამართი', 'გასამართი სადგური'],
-    'კვება': ['რესტორანი', 'კაფე', 'საცხობი', 'მარკეტი', 'მაღაზია'],
-    'ჯანმრთელობა': ['აფთიაქი', 'საავადმყოფო', 'სტომატოლოგი'],
-    'სხვა': ['ბანკი', 'სასტუმრო', 'პარკი', 'სკვერი', 'სალონი', 'ფოსტა']
+    'განათლება': ['განათლება'],
+    'ტრანსპორტი': ['ტრანსპორტი', 'ავტომობილი'],
+    'კვება': ['კვება'],
+    'ჯანმრთელობა': ['ჯანმრთელობა'],
+    'სილამაზე': ['სილამაზე'],
+    'დასვენება': ['დასვენება', 'პარკი'],
+    'რელიგია': ['რელიგია'],
+    'სერვისები': ['სერვისები'],
+    'იყიდება': ['შაბლონი', 'იყიდება'],
+    'სხვა': ['სხვა']
   };
 
   @override
@@ -95,6 +101,49 @@ class _MapScreenState extends State<MapScreen> {
         );
       }
     }
+  }
+
+  void _showPromoDialog() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(25),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.stars, color: Colors.orange, size: 50),
+            const SizedBox(height: 15),
+            const Text(
+              "გსურთ თქვენი ბიზნესი რუკაზე? 🚀",
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.indigo),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              "დაამატეთ თქვენი ობიექტი ივერთუბნის რუკაზე და გახადეთ ის ყველასთვის ხელმისაწვდომი.",
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.black87),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _launchGoogleForm();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.indigo,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+              ),
+              child: const Text("შეავსეთ განაცხადი", style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+            const SizedBox(height: 10),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _determinePosition() async {
@@ -153,18 +202,24 @@ class _MapScreenState extends State<MapScreen> {
     for (var row in _allData) {
       final lat = double.tryParse(row['lat']?.toString() ?? '');
       final lon = double.tryParse(row['long']?.toString() ?? row['lon']?.toString() ?? '');
+      
+      // ვიღებთ კატეგორიას (categories) ან ტიპს (type)
+      final category = (row['categories'] ?? row['Categories'] ?? row['Type'] ?? row['type'] ?? 'სხვა').toString().trim();
       final type = (row['Type'] ?? row['type'] ?? 'სხვა').toString().toLowerCase().trim();
       final name = (row['Name'] ?? row['name'] ?? '').toString().toLowerCase();
       final desc = (row['Description'] ?? row['description'] ?? '').toString().toLowerCase();
+
       String? parentGroup;
-      _categoryGroups.forEach((group, types) {
-        if (types.any((t) => t.toLowerCase() == type)) parentGroup = group;
+      _categoryGroups.forEach((group, list) {
+        if (list.contains(category)) parentGroup = group;
       });
       parentGroup ??= 'სხვა';
+
       bool matchesGroup = _enabledGroups.contains(parentGroup);
       bool matchesSearch = _searchQuery.isEmpty || name.contains(_searchQuery) || desc.contains(_searchQuery) || type.contains(_searchQuery);
+
       if (lat != null && lon != null && matchesGroup && matchesSearch) {
-        final style = _getMarkerStyle(type);
+        final style = _getMarkerStyle(type, category);
         newMarkers.add(
           Marker(
             point: LatLng(lat, lon),
@@ -177,24 +232,39 @@ class _MapScreenState extends State<MapScreen> {
         );
       }
     }
+
+    newMarkers.add(
+      Marker(
+        point: const LatLng(41.7315, 44.8365), 
+        width: 60, height: 60,
+        child: GestureDetector(
+          onTap: _showPromoDialog,
+          child: const Icon(Icons.stars, color: Colors.deepPurple, size: 50),
+        ),
+      ),
+    );
+
     setState(() {
       _markers = newMarkers;
       _isLoading = false;
     });
   }
 
-  _MarkerStyle _getMarkerStyle(String type) {
-    final t = type.toLowerCase().trim();
-    if (t.contains('აფთიაქი')) return _MarkerStyle(Icons.local_pharmacy, Colors.green);
-    if (t.contains('მარკეტი') || t.contains('მაღაზია')) return _MarkerStyle(Icons.shopping_cart, Colors.blue);
+  _MarkerStyle _getMarkerStyle(String type, String category) {
+    final t = type.toLowerCase();
+    final c = category.toLowerCase();
+
+    if (c.contains('ჯანმრთელობა') || t.contains('აფთიაქი')) return _MarkerStyle(Icons.local_pharmacy, Colors.green);
+    if (c.contains('კვება') || t.contains('მარკეტი') || t.contains('მაღაზია')) return _MarkerStyle(Icons.shopping_cart, Colors.blue);
     if (t.contains('ბანკი')) return _MarkerStyle(Icons.account_balance, Colors.orange);
     if (t.contains('რესტორანი') || t.contains('კაფე')) return _MarkerStyle(Icons.restaurant, Colors.red);
-    if (t.contains('სკოლა') || t.contains('ბაღი') || t.contains('მასწავლებელი')) return _MarkerStyle(Icons.school, Colors.purple);
-    if (t.contains('გასამართი')) return _MarkerStyle(Icons.local_gas_station, Colors.orangeAccent);
-    if (t.contains('ეკლესია') || t.contains('ტაძარი')) return _MarkerStyle(Icons.church, Colors.brown);
-    if (t.contains('პარკი') || t.contains('სკვერი')) return _MarkerStyle(Icons.park, Colors.lightGreen);
-    if (t.contains('იყიდება')) return _MarkerStyle(Icons.sell, Colors.orangeAccent);
-    if (t.contains('სილამაზის სალონი')) return _MarkerStyle(Icons.face, Colors.orangeAccent);
+    if (c.contains('განათლება') || t.contains('სკოლა') || t.contains('ბაღი') || t.contains('მასწავლებელი')) return _MarkerStyle(Icons.school, Colors.purple);
+    if (c.contains('ტრანსპორტი') || t.contains('გასამართი')) return _MarkerStyle(Icons.local_gas_station, Colors.orangeAccent);
+    if (c.contains('რელიგია') || t.contains('ეკლესია')) return _MarkerStyle(Icons.church, Colors.brown);
+    if (c.contains('დასვენება') || t.contains('პარკი')) return _MarkerStyle(Icons.park, Colors.lightGreen);
+    if (c.contains('სილამაზე') || t.contains('სალონი')) return _MarkerStyle(Icons.face, Colors.pinkAccent);
+    if (t.contains('იყიდება')) return _MarkerStyle(Icons.sell, Colors.redAccent);
+    
     final int hash = t.hashCode;
     final Color autoColor = Color((hash & 0xFFFFFF) | 0xFF000000).withOpacity(0.9);
     return _MarkerStyle(Icons.location_on, autoColor);
@@ -264,11 +334,7 @@ class _MapScreenState extends State<MapScreen> {
         title: const Text('ივერთუბანი', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.indigo,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.add_location_alt, color: Colors.white), 
-            onPressed: _launchGoogleForm,
-            tooltip: 'წერტილის დამატება',
-          ),
+          IconButton(icon: const Icon(Icons.add_location_alt, color: Colors.white), onPressed: _launchGoogleForm, tooltip: 'წერტილის დამატება'),
           IconButton(icon: const Icon(Icons.refresh, color: Colors.white), onPressed: _loadData, tooltip: 'განახლება'),
           Builder(builder: (context) => IconButton(icon: const Icon(Icons.menu, color: Colors.white), onPressed: () => Scaffold.of(context).openEndDrawer(), tooltip: 'მენიუ')),
         ],
@@ -288,9 +354,7 @@ class _MapScreenState extends State<MapScreen> {
                     TileLayer(
                       urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                       userAgentPackageName: 'com.example.ivertubani',
-                      tileProvider: snapshot.hasData 
-                          ? CachedTileProvider(store: snapshot.data!) 
-                          : NetworkTileProvider(),
+                      tileProvider: snapshot.hasData ? CachedTileProvider(store: snapshot.data!) : NetworkTileProvider(),
                     ),
                     MarkerLayer(markers: _markers),
                     if (_currentLocation != null) MarkerLayer(markers: [Marker(point: _currentLocation!, child: const Icon(Icons.my_location, color: Colors.blue, size: 25))]),
@@ -396,14 +460,7 @@ class _MapScreenState extends State<MapScreen> {
                             debugPrint('Could not launch $url');
                           }
                         },
-                        child: const Text(
-                          'ავტორი: ezdanapak ➔',
-                          style: TextStyle(
-                            color: Colors.blue,
-                            decoration: TextDecoration.underline,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                        child: const Text('ავტორი: ezdanapak ➔', style: TextStyle(color: Colors.blue, decoration: TextDecoration.underline, fontWeight: FontWeight.bold)),
                       ),
                     ],
                   ),
