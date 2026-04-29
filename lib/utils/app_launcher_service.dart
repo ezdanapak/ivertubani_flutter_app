@@ -13,6 +13,7 @@ class AppLauncherService {
         throw Exception('Could not launch');
       }
     } catch (_) {
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('ვერ მოხერხდა ბმულის გახსნა')),
       );
