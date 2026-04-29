@@ -4,15 +4,18 @@ import 'package:flutter/material.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'app.dart';
+import 'utils/theme_service.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  if (!kIsWeb && (Platform.isWindows)) {
+
+  // Load saved theme before the first frame.
+  await ThemeService.instance.init();
+
+  if (!kIsWeb && Platform.isWindows) {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
   }
+
   runApp(const MyApp());
 }
-
-
-

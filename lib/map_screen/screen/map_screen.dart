@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:dio_cache_interceptor_file_store/dio_cache_interceptor_file_store.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:ivertubani/map_screen/widgets/ivertubani_drawer.dart';
 import 'package:ivertubani/map_screen/widgets/ivertubani_map.dart';
@@ -19,16 +20,11 @@ import '../../utils/marker_style.dart';
 import '../widgets/feature_info_modal.dart';
 import '../widgets/ivertubani_appbar.dart';
 
-// ─── Isolate helper (top-level — required by compute()) ──────────────────────
+// ─── Isolate helper ───────────────────────────────────────────────────────────
 
-/// Parameters that cross the isolate boundary.
-/// All fields are primitive-safe (List / Map / String / List<int>).
 class _FilterParams {
   final List<Map<String, dynamic>> allData;
   final String query;
-
-  /// Enabled category ordinal indices (MapCategory.index).
-  /// Using int instead of the enum so the object stays isolate-sendable.
   final List<int> enabledIndices;
 
   const _FilterParams({
@@ -38,9 +34,6 @@ class _FilterParams {
   });
 }
 
-/// Pure data filtering — executed in a background isolate via compute().
-/// Returns only the rows whose coordinates are valid and that satisfy both
-/// the active category filter and the search query.
 List<Map<String, dynamic>> _filterDataIsolate(_FilterParams params) {
   final query = params.query.toLowerCase();
   final enabledSet = params.enabledIndices.toSet();
@@ -87,12 +80,11 @@ class _MapScreenState extends State<MapScreen> {
   List<Map<String, dynamic>> _allData = [];
   List<Marker> _markers = [];
   bool _isLoading = true;
+  bool _hasError = false;
   final LatLng _initialLocation = const LatLng(41.7301548, 44.8353731);
   LatLng? _currentLocation;
   Future<FileCacheStore>? _cacheStoreFuture;
   Set<MapCategory> _enabledCategories = MapCategory.values.toSet();
-
-  /// Debounce timer — cancelled and restarted on every keystroke.
   Timer? _debounceTimer;
 
   @override
@@ -100,11 +92,9 @@ class _MapScreenState extends State<MapScreen> {
     super.initState();
     _mapController = MapController();
     _queryController = TextEditingController();
-
     _locationService = LocationService();
     _dataService = MapDataService();
     _mapActions = MapActionsService(_mapController);
-
     _enabledCategories = MapCategory.values.toSet();
     _initCache();
     _loadData();
@@ -120,9 +110,9 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   void _initCache() {
-    _cacheStoreFuture = getTemporaryDirectory().then((dir) {
-      return FileCacheStore(p.join(dir.path, 'map_cache'));
-    });
+    _cacheStoreFuture = getTemporaryDirectory().then(
+      (dir) => FileCacheStore(p.join(dir.path, 'map_cache')),
+    );
   }
 
   Future<void> _determinePosition() async {
@@ -131,13 +121,35 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _loadData() async {
-    setState(() => _isLoading = true);
-    _allData = await _dataService.loadData();
-    await _filterMarkers();
+    setState(() {
+      _isLoading = true;
+      _hasError = false;
+    });
+    try {
+      _allData = await _dataService.loadData();
+      await _filterMarkers();
+    } catch (e) {
+      debugPrint('_loadData error: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _hasError = true;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('მონაცემების ჩატვირთვა ვერ მოხერხდა'),
+            action: SnackBarAction(
+              label: 'ხელახლა',
+              onPressed: _loadData,
+            ),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    }
   }
 
-  /// Filters raw rows in a background isolate, then builds Marker widgets
-  /// on the main thread (widget construction needs BuildContext).
   Future<void> _filterMarkers() async {
     final params = _FilterParams(
       allData: _allData,
@@ -145,16 +157,11 @@ class _MapScreenState extends State<MapScreen> {
       enabledIndices: _enabledCategories.map((c) => c.index).toList(),
     );
 
-    // CPU-bound loop runs off the UI thread.
     final filteredRows = await compute(_filterDataIsolate, params);
 
-    // Marker widgets are built here (main thread) because GestureDetector
-    // callbacks need a valid BuildContext.
     final newMarkers = filteredRows.map((row) {
       final lat = double.parse(row['lat'].toString());
-      final lon = double.parse(
-        (row['long'] ?? row['lon']).toString(),
-      );
+      final lon = double.parse((row['long'] ?? row['lon']).toString());
       final type = (row['Type'] ?? row['type'] ?? '').toString();
       final style = MapCategory.fromRaw(type, type).style;
 
@@ -163,10 +170,11 @@ class _MapScreenState extends State<MapScreen> {
         width: 45,
         height: 45,
         child: GestureDetector(
-          onTap: () => FeatureInfoModal.openFutureInfoModal(
-            context,
-            attributes: row,
-          ),
+          onTap: () {
+            // Haptic feedback on marker tap
+            HapticFeedback.lightImpact();
+            FeatureInfoModal.openFutureInfoModal(context, attributes: row);
+          },
           child: Icon(style.icon, color: style.color, size: 40),
         ),
       );
@@ -180,13 +188,6 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-  /// Debounced search handler — waits 300 ms after the last keystroke
-  /// before triggering _filterMarkers().
-  ///
-  /// როგორ მუშაობს:
-  ///   მომხმარებელი წერს → _debounceTimer გადაიწყობა → 300 ms-ის შემდეგ
-  ///   (თუ ახალი სიმბოლო არ შეიყვანა) → _filterMarkers() გამოიძახება.
-  ///   ეს ხელს უშლის CPU-ს ზედმეტ დატვირთვას ყოველ ასოზე.
   void _onSearchChanged(String _) {
     _debounceTimer?.cancel();
     _debounceTimer = Timer(
@@ -195,12 +196,65 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
+  // ─── Empty state ────────────────────────────────────────────────────────────
+
+  Widget _buildEmptyState() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final query = _queryController.text;
+
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 40),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: isDark
+              ? Colors.black.withValues(alpha: 0.6)
+              : Colors.white.withValues(alpha: 0.9),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.search_off,
+              size: 44,
+              color: isDark ? Colors.grey.shade500 : Colors.grey.shade400,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'ვერ მოიძებნა',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white70 : Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '"$query"',
+              style: TextStyle(
+                fontSize: 13,
+                color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final double systemBottom = MediaQuery.of(
-      context,
-    ).systemGestureInsets.bottom;
+    final systemBottom = MediaQuery.of(context).systemGestureInsets.bottom;
+    final showEmptyState =
+        !_isLoading &&
+        !_hasError &&
+        _markers.isEmpty &&
+        _queryController.text.isNotEmpty;
+
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       appBar: IvertubaniAppBar(
         onAddLocation: () async =>
             await AppLauncherService.instance.openGoogleForm(context),
@@ -228,11 +282,19 @@ class _MapScreenState extends State<MapScreen> {
               markers: _markers,
               currentLocation: _currentLocation,
             ),
-            if (_isLoading) const Center(child: CircularProgressIndicator()),
+
+            // Loading indicator
+            if (_isLoading)
+              const Center(child: CircularProgressIndicator()),
+
+            // Empty search state
+            if (showEmptyState) _buildEmptyState(),
+
             IvertubaniTextField(
               controller: _queryController,
               onTextFieldChange: _onSearchChanged,
             ),
+
             MapControlPanel(
               onZoomIn: () => _mapActions.zoomIn(),
               onZoomOut: () => _mapActions.zoomOut(),

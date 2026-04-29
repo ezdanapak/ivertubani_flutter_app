@@ -11,7 +11,12 @@ class MapFab extends StatelessWidget {
   });
 
   final IconData icon;
-  final VoidCallback onPressed;
+
+  // Future<void> Function() — handles both sync and async callbacks correctly.
+  // Sync callbacks: () { ... } is assignable (Dart return-type covariance).
+  // Async callbacks: Future is properly awaited inside FloatingActionButton.
+  final Future<void> Function() onPressed;
+
   final String heroTag;
   final Color backgroundColor;
   final Color iconColor;
@@ -23,11 +28,7 @@ class MapFab extends StatelessWidget {
       heroTag: heroTag,
       backgroundColor: backgroundColor,
       onPressed: onPressed,
-      child: Icon(
-        icon,
-        color: iconColor,
-        size: 20,
-      ),
+      child: Icon(icon, color: iconColor, size: 20),
     );
   }
 }

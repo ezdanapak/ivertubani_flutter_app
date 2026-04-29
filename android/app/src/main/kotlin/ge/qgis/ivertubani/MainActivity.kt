@@ -1,4 +1,4 @@
-package com.example.ivertubani
+package ge.qgis.ivertubani
 
 import io.flutter.embedding.android.FlutterActivity
 

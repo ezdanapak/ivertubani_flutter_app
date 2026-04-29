@@ -24,19 +24,33 @@ class MapControlPanel extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          MapFab(icon: Icons.add, onPressed: onZoomIn, heroTag: "zoom_in"),
+          MapFab(
+            icon: Icons.add,
+            // Wrap sync callback so it satisfies Future<void> Function()
+            onPressed: () async => onZoomIn(),
+            heroTag: 'zoom_in',
+          ),
           const SizedBox(height: 8),
-          MapFab(icon: Icons.remove, onPressed: onZoomOut, heroTag: "zoom_out"),
+          MapFab(
+            icon: Icons.remove,
+            onPressed: () async => onZoomOut(),
+            heroTag: 'zoom_out',
+          ),
           const SizedBox(height: 8),
           MapFab(
             icon: Icons.center_focus_strong,
-            onPressed: onFocus,
-            heroTag: "focus",
+            onPressed: () async => onFocus(),
+            heroTag: 'focus',
             backgroundColor: Colors.orange,
             iconColor: Colors.white,
           ),
           const SizedBox(height: 8),
-          MapFab(icon: Icons.gps_fixed, onPressed: onGps, heroTag: "gps"),
+          // GPS button is already async — passed directly.
+          MapFab(
+            icon: Icons.gps_fixed,
+            onPressed: onGps,
+            heroTag: 'gps',
+          ),
         ],
       ),
     );

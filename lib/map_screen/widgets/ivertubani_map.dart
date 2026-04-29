@@ -6,8 +6,12 @@ import 'package:flutter_map_cache/flutter_map_cache.dart';
 import 'package:ivertubani/utils/dio_service.dart';
 import 'package:latlong2/latlong.dart';
 
-class IvertubaniMap extends StatelessWidget {
-  IvertubaniMap({
+// Tile URLs
+const _lightTiles = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+const _darkTiles  = 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png';
+
+class IvertubaniMap extends StatefulWidget {
+  const IvertubaniMap({
     super.key,
     required this.cacheStoreFuture,
     required this.mapController,
@@ -22,32 +26,53 @@ class IvertubaniMap extends StatelessWidget {
   final List<Marker> markers;
   final LatLng? currentLocation;
 
-  // Single Dio instance with retry + timeout — shared for all tile requests.
-  final Dio _dio = DioService.create();
+  @override
+  State<IvertubaniMap> createState() => _IvertubaniMapState();
+}
+
+class _IvertubaniMapState extends State<IvertubaniMap> {
+  late final Dio _dio;
+
+  @override
+  void initState() {
+    super.initState();
+    _dio = DioService.create();
+  }
+
+  @override
+  void dispose() {
+    _dio.close();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return FutureBuilder<FileCacheStore>(
-      future: cacheStoreFuture,
+      future: widget.cacheStoreFuture,
       builder: (context, snapshot) {
         return FlutterMap(
-          mapController: mapController,
-          options: MapOptions(initialCenter: initialLocation, initialZoom: 15),
+          mapController: widget.mapController,
+          options: MapOptions(
+            initialCenter: widget.initialLocation,
+            initialZoom: 15,
+          ),
           children: [
             TileLayer(
-              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-              userAgentPackageName: 'com.example.ivertubani',
+              urlTemplate: isDark ? _darkTiles : _lightTiles,
+              userAgentPackageName: 'ge.qgis.ivertubani',
               tileProvider: snapshot.hasData
                   ? CachedTileProvider(store: snapshot.data!, dio: _dio)
                   : NetworkTileProvider(),
             ),
-            MarkerLayer(markers: markers),
+            MarkerLayer(markers: widget.markers),
 
-            if (currentLocation != null)
+            if (widget.currentLocation != null)
               MarkerLayer(
                 markers: [
                   Marker(
-                    point: currentLocation!,
+                    point: widget.currentLocation!,
                     child: const Icon(
                       Icons.my_location,
                       color: Colors.blue,
