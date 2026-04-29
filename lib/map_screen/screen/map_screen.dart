@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:dio_cache_interceptor_file_store/dio_cache_interceptor_file_store.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:ivertubani/map_screen/widgets/ivertubani_drawer.dart';
@@ -15,6 +18,57 @@ import '../../utils/map_data_service.dart';
 import '../../utils/marker_style.dart';
 import '../widgets/feature_info_modal.dart';
 import '../widgets/ivertubani_appbar.dart';
+
+// ─── Isolate helper (top-level — required by compute()) ──────────────────────
+
+/// Parameters that cross the isolate boundary.
+/// All fields are primitive-safe (List / Map / String / List<int>).
+class _FilterParams {
+  final List<Map<String, dynamic>> allData;
+  final String query;
+
+  /// Enabled category ordinal indices (MapCategory.index).
+  /// Using int instead of the enum so the object stays isolate-sendable.
+  final List<int> enabledIndices;
+
+  const _FilterParams({
+    required this.allData,
+    required this.query,
+    required this.enabledIndices,
+  });
+}
+
+/// Pure data filtering — executed in a background isolate via compute().
+/// Returns only the rows whose coordinates are valid and that satisfy both
+/// the active category filter and the search query.
+List<Map<String, dynamic>> _filterDataIsolate(_FilterParams params) {
+  final query = params.query.toLowerCase();
+  final enabledSet = params.enabledIndices.toSet();
+
+  return params.allData.where((row) {
+    final lat = double.tryParse(row['lat']?.toString() ?? '');
+    final lon = double.tryParse(
+      row['long']?.toString() ?? row['lon']?.toString() ?? '',
+    );
+    if (lat == null || lon == null) return false;
+
+    final type = (row['Type'] ?? row['type'] ?? '').toString();
+    final name = (row['Name'] ?? '').toString().toLowerCase();
+    final desc = (row['Description'] ?? '').toString().toLowerCase();
+
+    final matchesCategory =
+        enabledSet.contains(MapCategory.fromRaw(type, type).index);
+    final matchesSearch =
+        query.isEmpty ||
+        name.contains(query) ||
+        desc.contains(query) ||
+        type.toLowerCase().contains(query);
+
+    return matchesCategory && matchesSearch;
+  }).toList();
+}
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -38,6 +92,9 @@ class _MapScreenState extends State<MapScreen> {
   Future<FileCacheStore>? _cacheStoreFuture;
   Set<MapCategory> _enabledCategories = MapCategory.values.toSet();
 
+  /// Debounce timer — cancelled and restarted on every keystroke.
+  Timer? _debounceTimer;
+
   @override
   void initState() {
     super.initState();
@@ -56,6 +113,7 @@ class _MapScreenState extends State<MapScreen> {
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _mapController.dispose();
     _queryController.dispose();
     super.dispose();
@@ -69,54 +127,72 @@ class _MapScreenState extends State<MapScreen> {
 
   Future<void> _determinePosition() async {
     _currentLocation = await _locationService.getCurrentLocation();
-    setState(() {});
+    if (mounted) setState(() {});
   }
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     _allData = await _dataService.loadData();
-    _filterMarkers();
+    await _filterMarkers();
   }
 
-  void _filterMarkers() {
-    List<Marker> newMarkers = [];
-    for (var row in _allData) {
-      final lat = double.tryParse(row['lat']?.toString() ?? '');
-      final lon = double.tryParse(
-        row['long']?.toString() ?? row['lon']?.toString() ?? '',
+  /// Filters raw rows in a background isolate, then builds Marker widgets
+  /// on the main thread (widget construction needs BuildContext).
+  Future<void> _filterMarkers() async {
+    final params = _FilterParams(
+      allData: _allData,
+      query: _queryController.text,
+      enabledIndices: _enabledCategories.map((c) => c.index).toList(),
+    );
+
+    // CPU-bound loop runs off the UI thread.
+    final filteredRows = await compute(_filterDataIsolate, params);
+
+    // Marker widgets are built here (main thread) because GestureDetector
+    // callbacks need a valid BuildContext.
+    final newMarkers = filteredRows.map((row) {
+      final lat = double.parse(row['lat'].toString());
+      final lon = double.parse(
+        (row['long'] ?? row['lon']).toString(),
       );
       final type = (row['Type'] ?? row['type'] ?? '').toString();
-      final name = (row['Name'] ?? '').toString().toLowerCase();
-      final desc = (row['Description'] ?? '').toString().toLowerCase();
-      final categoryEnum = MapCategory.fromRaw(type, type);
-      final matchesCategory = _enabledCategories.contains(categoryEnum);
-      final matchesSearch =
-          _queryController.text.isEmpty ||
-          name.contains(_queryController.text) ||
-          desc.contains(_queryController.text) ||
-          type.toLowerCase().contains(_queryController.text);
-      if (lat != null && lon != null && matchesCategory && matchesSearch) {
-        final style = categoryEnum.style;
-        newMarkers.add(
-          Marker(
-            point: LatLng(lat, lon),
-            width: 45,
-            height: 45,
-            child: GestureDetector(
-              onTap: () => FeatureInfoModal.openFutureInfoModal(
-                context,
-                attributes: row,
-              ),
-              child: Icon(style.icon, color: style.color, size: 40),
-            ),
+      final style = MapCategory.fromRaw(type, type).style;
+
+      return Marker(
+        point: LatLng(lat, lon),
+        width: 45,
+        height: 45,
+        child: GestureDetector(
+          onTap: () => FeatureInfoModal.openFutureInfoModal(
+            context,
+            attributes: row,
           ),
-        );
-      }
+          child: Icon(style.icon, color: style.color, size: 40),
+        ),
+      );
+    }).toList();
+
+    if (mounted) {
+      setState(() {
+        _markers = newMarkers;
+        _isLoading = false;
+      });
     }
-    setState(() {
-      _markers = newMarkers;
-      _isLoading = false;
-    });
+  }
+
+  /// Debounced search handler — waits 300 ms after the last keystroke
+  /// before triggering _filterMarkers().
+  ///
+  /// როგორ მუშაობს:
+  ///   მომხმარებელი წერს → _debounceTimer გადაიწყობა → 300 ms-ის შემდეგ
+  ///   (თუ ახალი სიმბოლო არ შეიყვანა) → _filterMarkers() გამოიძახება.
+  ///   ეს ხელს უშლის CPU-ს ზედმეტ დატვირთვას ყოველ ასოზე.
+  void _onSearchChanged(String _) {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(
+      const Duration(milliseconds: 300),
+      _filterMarkers,
+    );
   }
 
   @override
@@ -137,8 +213,8 @@ class _MapScreenState extends State<MapScreen> {
             res.selected!
                 ? _enabledCategories.add(res.category)
                 : _enabledCategories.remove(res.category);
-            _filterMarkers();
           });
+          _filterMarkers();
         },
       ),
       body: Padding(
@@ -155,9 +231,7 @@ class _MapScreenState extends State<MapScreen> {
             if (_isLoading) const Center(child: CircularProgressIndicator()),
             IvertubaniTextField(
               controller: _queryController,
-              onTextFieldChange: (val) {
-                _filterMarkers();
-              },
+              onTextFieldChange: _onSearchChanged,
             ),
             MapControlPanel(
               onZoomIn: () => _mapActions.zoomIn(),
