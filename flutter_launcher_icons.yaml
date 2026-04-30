@@ -1,0 +1,17 @@
+flutter_launcher_icons:
+  # Android — adaptive icon (Android 8+)
+  android: true
+  image_path: "assets/icon/icon.png"
+  adaptive_icon_background: "#3F51B5"   # indigo — ფონის ფენა
+  adaptive_icon_foreground: "assets/icon/icon.png"
+
+  # Web
+  web:
+    generate: true
+    image_path: "assets/icon/icon.png"
+
+  # Windows
+  windows:
+    generate: true
+    image_path: "assets/icon/icon.png"
+    icon_size: 48

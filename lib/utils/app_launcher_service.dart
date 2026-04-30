@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ivertubani/generated/app_localizations.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class AppLauncherService {
@@ -15,7 +16,7 @@ class AppLauncherService {
     } catch (_) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ვერ მოხერხდა ბმულის გახსნა')),
+        SnackBar(content: Text(AppLocalizations.of(context).linkError)),
       );
     }
   }

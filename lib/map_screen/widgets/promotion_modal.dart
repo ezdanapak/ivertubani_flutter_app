@@ -11,7 +11,9 @@ class PromotionModal extends StatelessWidget {
   }) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      useSafeArea: true,
+      constraints: const BoxConstraints(maxWidth: double.infinity),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
       ),
@@ -21,34 +23,36 @@ class PromotionModal extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
     return Container(
       padding: const EdgeInsets.all(25),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.stars, color: Colors.orange, size: 50),
+          Icon(Icons.stars, color: Colors.orange, size: 50),
           const SizedBox(height: 15),
-          const Text(
+          Text(
             "გსურთ თქვენი ბიზნესი რუკაზე? 🚀",
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Colors.indigo,
+              color: scheme.primary,
             ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 10),
-          const Text(
+          Text(
             "დაამატეთ თქვენი ობიექტი ივერთუბნის რუკაზე და გახადეთ ის ყველასთვის ხელმისაწვდომი.",
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.black87),
+            style: TextStyle(color: scheme.onSurface.withValues(alpha: 0.7)),
           ),
           const SizedBox(height: 20),
           ElevatedButton(
             onPressed: onButtonPress,
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.indigo,
-              foregroundColor: Colors.white,
+              backgroundColor: scheme.primary,
+              foregroundColor: scheme.onPrimary,
               padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
             ),
             child: const Text(

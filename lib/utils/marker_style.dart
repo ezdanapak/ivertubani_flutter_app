@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ivertubani/generated/app_localizations.dart';
 
 enum MapCategory {
   education(
@@ -81,4 +82,33 @@ class MarkerStyle {
   final Color color;
 
   const MarkerStyle(this.icon, this.color);
+}
+
+/// Returns the localized label for a [MapCategory].
+/// Use this instead of [MapCategory.label] (which is the Georgian default).
+extension MapCategoryL10n on MapCategory {
+  String labelFor(AppLocalizations l10n) {
+    switch (this) {
+      case MapCategory.education:
+        return l10n.categoryEducation;
+      case MapCategory.transport:
+        return l10n.categoryTransport;
+      case MapCategory.food:
+        return l10n.categoryFood;
+      case MapCategory.health:
+        return l10n.categoryHealth;
+      case MapCategory.beauty:
+        return l10n.categoryBeauty;
+      case MapCategory.leisure:
+        return l10n.categoryLeisure;
+      case MapCategory.religion:
+        return l10n.categoryReligion;
+      case MapCategory.services:
+        return l10n.categoryServices;
+      case MapCategory.forSale:
+        return l10n.categoryForSale;
+      case MapCategory.other:
+        return l10n.categoryOther;
+    }
+  }
 }

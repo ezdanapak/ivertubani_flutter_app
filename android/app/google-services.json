@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "828260933495",
+    "project_id": "ivertubani-6af0d",
+    "storage_bucket": "ivertubani-6af0d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:828260933495:android:5fa8057ab4af7c258b8b72",
+        "android_client_info": {
+          "package_name": "ge.qgis.ivertubani"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCRMPN4-pp2__KPay3AKUJWKE1NBgFV_vU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

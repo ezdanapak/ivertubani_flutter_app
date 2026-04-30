@@ -1,0 +1,88 @@
+{
+  "@@locale": "en",
+
+  "appTitle": "Ivertubani",
+  "@appTitle": { "description": "Application title" },
+
+  "addLocation": "Add location",
+  "@addLocation": { "description": "AppBar tooltip — add location button" },
+
+  "refresh": "Refresh",
+  "@refresh": { "description": "AppBar tooltip — refresh button" },
+
+  "menu": "Menu",
+  "@menu": { "description": "AppBar tooltip — menu/drawer button" },
+
+  "drawerHeader": "Ivertubani",
+  "@drawerHeader": { "description": "Title shown in the drawer header" },
+
+  "darkMode": "Dark mode",
+  "@darkMode": { "description": "Dark mode label in drawer" },
+
+  "lightMode": "Light mode",
+  "@lightMode": { "description": "Light mode label in drawer" },
+
+  "layerManagement": "Manage layers",
+  "@layerManagement": { "description": "Expansion tile title in drawer" },
+
+  "closeDrawer": "Close",
+  "@closeDrawer": { "description": "Button to close the drawer after selecting categories" },
+
+  "aboutApp": "About",
+  "@aboutApp": { "description": "About section title in drawer" },
+
+  "aboutText": "Ivertubani Map v1.0\nUpdated: 22.04.2026",
+  "@aboutText": { "description": "About section subtitle" },
+
+  "author": "Author: ezdanapak ➔",
+  "@author": { "description": "Author link text in about section" },
+
+  "language": "Language",
+  "@language": { "description": "Language switcher label in drawer" },
+
+  "languageGeorgian": "🇬🇪 ქართული",
+  "@languageGeorgian": { "description": "Georgian language name" },
+
+  "languageEnglish": "🇬🇧 English",
+  "@languageEnglish": { "description": "English language name" },
+
+  "searchHint": "Search...",
+  "@searchHint": { "description": "Hint text for the search field" },
+
+  "loadError": "Failed to load data",
+  "@loadError": { "description": "Snackbar message when data loading fails" },
+
+  "linkError": "Could not open the link",
+  "@linkError": { "description": "Snackbar message when a URL cannot be launched" },
+
+  "retry": "Retry",
+  "@retry": { "description": "Snackbar action to retry loading" },
+
+  "noResults": "No results found",
+  "@noResults": { "description": "Empty state title when search returns nothing" },
+
+  "copiedLabel": "Copied",
+  "@copiedLabel": { "description": "Short inline confirmation shown next to a copied field" },
+
+  "copied": "Copied: {text}",
+  "@copied": {
+    "description": "Snackbar message when a value is copied to clipboard",
+    "placeholders": {
+      "text": { "type": "String" }
+    }
+  },
+
+  "viewOnGoogleMaps": "View on Google Maps ➔",
+  "@viewOnGoogleMaps": { "description": "Link label for Google Maps URLs in the feature info modal" },
+
+  "categoryEducation": "Education",
+  "categoryTransport": "Transport",
+  "categoryFood": "Food & Drink",
+  "categoryHealth": "Health",
+  "categoryBeauty": "Beauty",
+  "categoryLeisure": "Leisure",
+  "categoryReligion": "Religion",
+  "categoryServices": "Services",
+  "categoryForSale": "For Sale",
+  "categoryOther": "Other"
+}

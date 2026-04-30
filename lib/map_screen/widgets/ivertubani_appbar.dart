@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ivertubani/generated/app_localizations.dart';
 
 class IvertubaniAppBar extends StatelessWidget implements PreferredSizeWidget {
   const IvertubaniAppBar({
@@ -12,28 +13,30 @@ class IvertubaniAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
+    // ფერები ThemeData.appBarTheme-იდან მოდის (app.dart).
+    // hardcoded color-ი აქ არ უნდა იყოს — dark mode-ს გადაფარავდა.
+    final l10n = AppLocalizations.of(context);
     return AppBar(
-      title: const Text(
-        'ივერთუბანი',
-        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+      title: Text(
+        l10n.appTitle,
+        style: const TextStyle(fontWeight: FontWeight.bold),
       ),
-      backgroundColor: Colors.indigo,
       actions: [
         IconButton(
-          icon: const Icon(Icons.add_location_alt, color: Colors.white),
+          icon: const Icon(Icons.add_location_alt),
           onPressed: onAddLocation,
-          tooltip: 'წერტილის დამატება',
+          tooltip: l10n.addLocation,
         ),
         IconButton(
-          icon: const Icon(Icons.refresh, color: Colors.white),
+          icon: const Icon(Icons.refresh),
           onPressed: onRefresh,
-          tooltip: 'განახლება',
+          tooltip: l10n.refresh,
         ),
         Builder(
           builder: (context) => IconButton(
-            icon: const Icon(Icons.menu, color: Colors.white),
+            icon: const Icon(Icons.menu),
             onPressed: () => Scaffold.of(context).openEndDrawer(),
-            tooltip: 'მენიუ',
+            tooltip: l10n.menu,
           ),
         ),
       ],

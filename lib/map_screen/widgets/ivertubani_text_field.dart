@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ivertubani/generated/app_localizations.dart';
 
 class IvertubaniTextField extends StatefulWidget {
   const IvertubaniTextField({
@@ -46,9 +47,10 @@ class _IvertubaniTextFieldState extends State<IvertubaniTextField> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final scheme = Theme.of(context).colorScheme;
     final bgColor = isDark ? const Color(0xFF1E1E2E) : Colors.white;
     final hintColor = isDark ? Colors.grey.shade400 : Colors.grey.shade600;
-    final iconColor = isDark ? Colors.indigo.shade200 : Colors.indigo;
+    final iconColor = scheme.primary;
 
     return Positioned(
       bottom: 10,
@@ -80,7 +82,7 @@ class _IvertubaniTextFieldState extends State<IvertubaniTextField> {
                   fontSize: 15,
                 ),
                 decoration: InputDecoration(
-                  hintText: 'ძებნა...',
+                  hintText: AppLocalizations.of(context).searchHint,
                   hintStyle: TextStyle(color: hintColor),
                   border: InputBorder.none,
                   isDense: true,

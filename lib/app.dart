@@ -1,50 +1,70 @@
+import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
+import 'package:ivertubani/generated/app_localizations.dart';
 import 'map_screen/screen/map_screen.dart';
+import 'utils/locale_service.dart';
 import 'utils/theme_service.dart';
+
+// Fallback seed — გამოიყენება iOS-ზე და Android 11-ზე ან უფრო ძველზე,
+// სადაც dynamic color მხარდაჭერილი არ არის.
+const _seedColor = Colors.indigo;
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  static final _lightTheme = ThemeData(
-    colorScheme: ColorScheme.fromSeed(
-      seedColor: Colors.indigo,
-      brightness: Brightness.light,
-    ),
-    useMaterial3: true,
-    appBarTheme: const AppBarTheme(
-      backgroundColor: Colors.indigo,
-      foregroundColor: Colors.white,
-    ),
-  );
+  // AppBar-ის ფერი colorScheme.primary-ზე დაყრდნობით —
+  // dynamic color-ის შემთხვევაში მომხმარებლის სისტემის ფერი გამოიყენება.
+  static AppBarTheme _appBarTheme(ColorScheme scheme) => AppBarTheme(
+        backgroundColor: scheme.primary,
+        foregroundColor: scheme.onPrimary,
+        elevation: 0,
+      );
 
-  static final _darkTheme = ThemeData(
-    colorScheme: ColorScheme.fromSeed(
-      seedColor: Colors.indigo,
-      brightness: Brightness.dark,
-    ),
-    useMaterial3: true,
-    appBarTheme: AppBarTheme(
-      backgroundColor: Colors.indigo.shade900,
-      foregroundColor: Colors.white,
-    ),
-    drawerTheme: const DrawerThemeData(
-      backgroundColor: Color(0xFF1A1A2E),
-    ),
-    scaffoldBackgroundColor: const Color(0xFF121212),
-  );
+  static ThemeData _buildTheme(ColorScheme scheme) => ThemeData(
+        colorScheme: scheme,
+        useMaterial3: true,
+        appBarTheme: _appBarTheme(scheme),
+      );
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<ThemeMode>(
-      valueListenable: ThemeService.instance.notifier,
-      builder: (_, themeMode, __) {
-        return MaterialApp(
-          title: 'ივერთუბნის რუკა',
-          debugShowCheckedModeBanner: false,
-          theme: _lightTheme,
-          darkTheme: _darkTheme,
-          themeMode: themeMode,
-          home: const MapScreen(),
+    return DynamicColorBuilder(
+      builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
+        // Android 12+ — სისტემის wallpaper-ის ფერი
+        // iOS / Android 11- — indigo seed-ზე დაყრდნობილი scheme
+        final lightScheme = lightDynamic ??
+            ColorScheme.fromSeed(
+              seedColor: _seedColor,
+              brightness: Brightness.light,
+            );
+        final darkScheme = darkDynamic ??
+            ColorScheme.fromSeed(
+              seedColor: _seedColor,
+              brightness: Brightness.dark,
+            );
+
+        return ValueListenableBuilder<ThemeMode>(
+          valueListenable: ThemeService.instance.notifier,
+          builder: (_, themeMode, __) {
+            return ValueListenableBuilder<Locale>(
+              valueListenable: LocaleService.instance.notifier,
+              builder: (_, locale, __) {
+                return MaterialApp(
+                  onGenerateTitle: (ctx) =>
+                      AppLocalizations.of(ctx).appTitle,
+                  debugShowCheckedModeBanner: false,
+                  theme: _buildTheme(lightScheme),
+                  darkTheme: _buildTheme(darkScheme),
+                  themeMode: themeMode,
+                  locale: locale,
+                  localizationsDelegates:
+                      AppLocalizations.localizationsDelegates,
+                  supportedLocales: AppLocalizations.supportedLocales,
+                  home: const MapScreen(),
+                );
+              },
+            );
+          },
         );
       },
     );

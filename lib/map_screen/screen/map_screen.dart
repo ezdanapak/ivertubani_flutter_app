@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:ivertubani/generated/app_localizations.dart';
 import 'package:ivertubani/map_screen/widgets/ivertubani_drawer.dart';
 import 'package:ivertubani/map_screen/widgets/ivertubani_map.dart';
 import 'package:ivertubani/map_screen/widgets/ivertubani_text_field.dart';
@@ -12,13 +13,16 @@ import 'package:ivertubani/map_screen/widgets/map_control_panel.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import '../../utils/analytics_service.dart';
 import '../../utils/app_launcher_service.dart';
 import '../../utils/location_service.dart';
 import '../../utils/map_action_service.dart';
 import '../../utils/map_data_service.dart';
 import '../../utils/marker_style.dart';
+import '../../utils/review_service.dart';
 import '../widgets/feature_info_modal.dart';
 import '../widgets/ivertubani_appbar.dart';
+import '../widgets/promotion_modal.dart';
 
 // ─── Isolate helper ───────────────────────────────────────────────────────────
 
@@ -27,10 +31,15 @@ class _FilterParams {
   final String query;
   final List<int> enabledIndices;
 
+  /// category.index → search terms (ქართული subCategories + ლოკალიზებული label).
+  /// main thread-ზე აიგება, რათა l10n isolate-ში არ გახვიდეს.
+  final Map<int, List<String>> categorySearchTerms;
+
   const _FilterParams({
     required this.allData,
     required this.query,
     required this.enabledIndices,
+    required this.categorySearchTerms,
   });
 }
 
@@ -49,13 +58,17 @@ List<Map<String, dynamic>> _filterDataIsolate(_FilterParams params) {
     final name = (row['Name'] ?? '').toString().toLowerCase();
     final desc = (row['Description'] ?? '').toString().toLowerCase();
 
-    final matchesCategory =
-        enabledSet.contains(MapCategory.fromRaw(type, type).index);
+    final category = MapCategory.fromRaw(type, type);
+    final matchesCategory = enabledSet.contains(category.index);
+
+    // category-ს search terms: ქართული subCategories + ლოკალიზებული label.
+    // ასე "food", "კვება", "რესტორანი" — ყველა მუშაობს.
+    final categoryTerms = params.categorySearchTerms[category.index] ?? [];
     final matchesSearch =
         query.isEmpty ||
         name.contains(query) ||
         desc.contains(query) ||
-        type.toLowerCase().contains(query);
+        categoryTerms.any((term) => term.contains(query));
 
     return matchesCategory && matchesSearch;
   }).toList();
@@ -86,6 +99,7 @@ class _MapScreenState extends State<MapScreen> {
   Future<FileCacheStore>? _cacheStoreFuture;
   Set<MapCategory> _enabledCategories = MapCategory.values.toSet();
   Timer? _debounceTimer;
+  int _markerTapCount = 0;
 
   @override
   void initState() {
@@ -95,7 +109,6 @@ class _MapScreenState extends State<MapScreen> {
     _locationService = LocationService();
     _dataService = MapDataService();
     _mapActions = MapActionsService(_mapController);
-    _enabledCategories = MapCategory.values.toSet();
     _initCache();
     _loadData();
     _determinePosition();
@@ -110,6 +123,8 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   void _initCache() {
+    // Web-ზე getTemporaryDirectory() არ არსებობს — tile cache მხოლოდ native-ზე.
+    if (kIsWeb) return;
     _cacheStoreFuture = getTemporaryDirectory().then(
       (dir) => FileCacheStore(p.join(dir.path, 'map_cache')),
     );
@@ -121,6 +136,8 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _loadData() async {
+    AnalyticsService.instance.logMapSessionStart();
+    ReviewService.instance.onSessionStart();
     setState(() {
       _isLoading = true;
       _hasError = false;
@@ -135,11 +152,12 @@ class _MapScreenState extends State<MapScreen> {
           _isLoading = false;
           _hasError = true;
         });
+        final l10n = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('მონაცემების ჩატვირთვა ვერ მოხერხდა'),
+            content: Text(l10n.loadError),
             action: SnackBarAction(
-              label: 'ხელახლა',
+              label: l10n.retry,
               onPressed: _loadData,
             ),
             behavior: SnackBarBehavior.floating,
@@ -151,10 +169,22 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _filterMarkers() async {
+    // ლოკალიზებული search terms: ქართული subCategories + მიმდინარე ლოკალის label.
+    // ეს main thread-ზე იგება, რათა l10n isolate-ში არ გახვიდეს.
+    final l10n = AppLocalizations.of(context);
+    final categorySearchTerms = {
+      for (final cat in MapCategory.values)
+        cat.index: [
+          ...cat.subCategories.map((s) => s.toLowerCase()),
+          cat.labelFor(l10n).toLowerCase(),
+        ],
+    };
+
     final params = _FilterParams(
       allData: _allData,
       query: _queryController.text,
       enabledIndices: _enabledCategories.map((c) => c.index).toList(),
+      categorySearchTerms: categorySearchTerms,
     );
 
     final filteredRows = await compute(_filterDataIsolate, params);
@@ -171,9 +201,26 @@ class _MapScreenState extends State<MapScreen> {
         height: 45,
         child: GestureDetector(
           onTap: () {
-            // Haptic feedback on marker tap
             HapticFeedback.lightImpact();
+            AnalyticsService.instance.logMarkerTapped(
+              name: (row['Name'] ?? '').toString(),
+              category: type,
+            );
             FeatureInfoModal.openFutureInfoModal(context, attributes: row);
+            _markerTapCount++;
+            if (_markerTapCount % 5 == 0) {
+              Future.delayed(const Duration(milliseconds: 600), () {
+                if (mounted) {
+                  PromotionModal.showPromoModal(
+                    context,
+                    onButtonPress: () {
+                      Navigator.of(context).pop();
+                      AppLauncherService.instance.openGoogleForm(context);
+                    },
+                  );
+                }
+              });
+            }
           },
           child: Icon(style.icon, color: style.color, size: 40),
         ),
@@ -188,12 +235,12 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-  void _onSearchChanged(String _) {
+  void _onSearchChanged(String query) {
     _debounceTimer?.cancel();
-    _debounceTimer = Timer(
-      const Duration(milliseconds: 300),
-      _filterMarkers,
-    );
+    _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+      AnalyticsService.instance.logSearch(query: query);
+      _filterMarkers();
+    });
   }
 
   // ─── Empty state ────────────────────────────────────────────────────────────
@@ -222,7 +269,7 @@ class _MapScreenState extends State<MapScreen> {
             ),
             const SizedBox(height: 10),
             Text(
-              'ვერ მოიძებნა',
+              AppLocalizations.of(context).noResults,
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -256,13 +303,19 @@ class _MapScreenState extends State<MapScreen> {
     return Scaffold(
       resizeToAvoidBottomInset: true,
       appBar: IvertubaniAppBar(
-        onAddLocation: () async =>
-            await AppLauncherService.instance.openGoogleForm(context),
+        onAddLocation: () async {
+          AnalyticsService.instance.logAddLocationTapped();
+          await AppLauncherService.instance.openGoogleForm(context);
+        },
         onRefresh: _loadData,
       ),
       endDrawer: IvertubaniDrawer(
         enabledCategories: _enabledCategories,
         onCategoryPress: (res) {
+          AnalyticsService.instance.logCategoryFilterChanged(
+            category: res.category.name,
+            enabled: res.selected ?? false,
+          );
           setState(() {
             res.selected!
                 ? _enabledCategories.add(res.category)
@@ -303,6 +356,7 @@ class _MapScreenState extends State<MapScreen> {
                 initialLocation: _initialLocation,
               ),
               onGps: () async {
+                AnalyticsService.instance.logGpsTapped();
                 await _determinePosition();
                 if (_currentLocation != null) {
                   _mapActions.goToLocation(_currentLocation!);

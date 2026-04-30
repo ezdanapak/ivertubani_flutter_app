@@ -3,6 +3,8 @@ plugins {
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+    // Google services — google-services.json-ის პროცესინგი
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -48,4 +50,11 @@ android {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // Firebase BoM — ყველა Firebase ბიბლიოთეკა ერთი ვერსიით
+    implementation(platform("com.google.firebase:firebase-bom:34.12.0"))
+    // Analytics — BoM-ის გამო ვერსია არ ეწერება
+    implementation("com.google.firebase:firebase-analytics")
 }

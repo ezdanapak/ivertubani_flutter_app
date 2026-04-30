@@ -1,0 +1,20 @@
+flutter_native_splash:
+  # Splash ფონის ფერი — indigo (light mode)
+  color: "#3F51B5"
+
+  # Dark mode splash ფონი
+  color_dark: "#1A237E"
+
+  # Icon — splash-ის ცენტრში
+  image: assets/icon/icon.png
+
+  # Android 12+ — ეს platform handles splash by itself
+  android_12:
+    color: "#3F51B5"
+    color_dark: "#1A237E"
+    image: assets/icon/icon.png
+    icon_background_color: "#3F51B5"
+    icon_background_color_dark: "#1A237E"
+
+  # Web splash
+  web: false

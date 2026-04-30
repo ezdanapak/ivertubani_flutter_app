@@ -6,29 +6,31 @@ class MapFab extends StatelessWidget {
     required this.icon,
     required this.onPressed,
     required this.heroTag,
-    this.backgroundColor = Colors.white,
-    this.iconColor = Colors.indigo,
+    this.backgroundColor,
+    this.iconColor,
   });
 
   final IconData icon;
-
-  // Future<void> Function() — handles both sync and async callbacks correctly.
-  // Sync callbacks: () { ... } is assignable (Dart return-type covariance).
-  // Async callbacks: Future is properly awaited inside FloatingActionButton.
   final Future<void> Function() onPressed;
-
   final String heroTag;
-  final Color backgroundColor;
-  final Color iconColor;
+
+  // null → theme-დან ავტომატურად.
+  // კონკრეტული ფერი (მაგ. focus ღილაკი orange) → override.
+  final Color? backgroundColor;
+  final Color? iconColor;
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final bg = backgroundColor ?? scheme.surface;
+    final ic = iconColor ?? scheme.primary;
+
     return FloatingActionButton(
       mini: true,
       heroTag: heroTag,
-      backgroundColor: backgroundColor,
+      backgroundColor: bg,
       onPressed: onPressed,
-      child: Icon(icon, color: iconColor, size: 20),
+      child: Icon(icon, color: ic, size: 20),
     );
   }
 }
