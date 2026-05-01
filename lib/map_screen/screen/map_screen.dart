@@ -43,6 +43,11 @@ class _FilterParams {
   });
 }
 
+// ტექნიკური ველები, რომლებიც ძებნაში არ გვჭირდება.
+const _kTechnicalKeys = {
+  'fid', 'geom', 'geometry', 'lat', 'long', 'lon', 'id', 'ogc_fid',
+};
+
 List<Map<String, dynamic>> _filterDataIsolate(_FilterParams params) {
   final query = params.query.toLowerCase();
   final enabledSet = params.enabledIndices.toSet();
@@ -55,20 +60,20 @@ List<Map<String, dynamic>> _filterDataIsolate(_FilterParams params) {
     if (lat == null || lon == null) return false;
 
     final type = (row['Type'] ?? row['type'] ?? '').toString();
-    final name = (row['Name'] ?? '').toString().toLowerCase();
-    final desc = (row['Description'] ?? '').toString().toLowerCase();
-
     final category = MapCategory.fromRaw(type, type);
     final matchesCategory = enabledSet.contains(category.index);
 
-    // category-ს search terms: ქართული subCategories + ლოკალიზებული label.
-    // ასე "food", "კვება", "რესტორანი" — ყველა მუშაობს.
+    // ყველა არა-ტექნიკური სვეტის მნიშვნელობა ერთ სტრინგად —
+    // Name, Description, Address, Phone და ნებისმიერი სხვა სვეტი
+    // ავტომატურად მოხვდება ძებნაში, ინგლისური/ქართული ორივე.
     final categoryTerms = params.categorySearchTerms[category.index] ?? [];
     final matchesSearch =
         query.isEmpty ||
-        name.contains(query) ||
-        desc.contains(query) ||
-        categoryTerms.any((term) => term.contains(query));
+        categoryTerms.any((term) => term.contains(query)) ||
+        row.entries
+            .where((e) => !_kTechnicalKeys.contains(e.key.toLowerCase()))
+            .any((e) =>
+                e.value?.toString().toLowerCase().contains(query) ?? false);
 
     return matchesCategory && matchesSearch;
   }).toList();
