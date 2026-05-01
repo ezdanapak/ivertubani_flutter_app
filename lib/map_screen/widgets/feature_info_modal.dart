@@ -133,6 +133,7 @@ class _FeatureInfoModalState extends State<FeatureInfoModal> {
             : Text(
                 text,
                 key: ValueKey('$fieldKey:$text'),
+                textAlign: TextAlign.start,
                 style: TextStyle(
                   fontSize: 15,
                   color: isDark ? Colors.white70 : Colors.black87,
@@ -157,6 +158,7 @@ class _FeatureInfoModalState extends State<FeatureInfoModal> {
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // drag handle
           Container(

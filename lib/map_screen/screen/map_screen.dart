@@ -213,7 +213,7 @@ class _MapScreenState extends State<MapScreen> {
             );
             FeatureInfoModal.openFutureInfoModal(context, attributes: row);
             _markerTapCount++;
-            if (_markerTapCount % 5 == 0) {
+            if (_markerTapCount == 10) {
               Future.delayed(const Duration(milliseconds: 600), () {
                 if (mounted) {
                   PromotionModal.showPromoModal(
