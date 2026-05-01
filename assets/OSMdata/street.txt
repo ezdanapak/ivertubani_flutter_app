@@ -1,0 +1,8 @@
+OSM დან ქუჩების შაბლონის წამოღება ქართულად და ინგლისურად https://overpass-turbo.eu/
+
+[out:csv("name", "name:en", "highway"; true; "|")];
+{{geocodeArea:Tbilisi}}->.searchArea;
+(
+  way["highway"]["name"](area.searchArea);
+);
+out;
