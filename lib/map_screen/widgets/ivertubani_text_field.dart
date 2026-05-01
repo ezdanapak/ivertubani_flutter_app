@@ -55,8 +55,9 @@ class _IvertubaniTextFieldState extends State<IvertubaniTextField> {
     return Positioned(
       bottom: 10,
       left: 15,
-      right: 80,
-      child: Container(
+      child: SizedBox(
+        width: 220,
+        child: Container(
         height: 50,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
@@ -97,6 +98,7 @@ class _IvertubaniTextFieldState extends State<IvertubaniTextField> {
                 child: Icon(Icons.close, color: hintColor, size: 18),
               ),
           ],
+        ),
         ),
       ),
     );

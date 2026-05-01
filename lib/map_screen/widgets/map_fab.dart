@@ -8,16 +8,15 @@ class MapFab extends StatelessWidget {
     required this.heroTag,
     this.backgroundColor,
     this.iconColor,
+    this.tooltip,
   });
 
   final IconData icon;
   final Future<void> Function() onPressed;
   final String heroTag;
-
-  // null → theme-დან ავტომატურად.
-  // კონკრეტული ფერი (მაგ. focus ღილაკი orange) → override.
   final Color? backgroundColor;
   final Color? iconColor;
+  final String? tooltip;
 
   @override
   Widget build(BuildContext context) {
@@ -25,12 +24,17 @@ class MapFab extends StatelessWidget {
     final bg = backgroundColor ?? scheme.surface;
     final ic = iconColor ?? scheme.primary;
 
-    return FloatingActionButton(
+    final fab = FloatingActionButton(
       mini: true,
       heroTag: heroTag,
       backgroundColor: bg,
       onPressed: onPressed,
       child: Icon(icon, color: ic, size: 20),
     );
+
+    if (tooltip != null) {
+      return Tooltip(message: tooltip!, child: fab);
+    }
+    return fab;
   }
 }

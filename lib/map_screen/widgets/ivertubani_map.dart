@@ -6,6 +6,9 @@ import 'package:flutter_map_cache/flutter_map_cache.dart';
 import 'package:ivertubani/utils/dio_service.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../utils/measurement_service.dart';
+import 'measurement_layers.dart';
+
 // Tile URLs
 const _lightTiles = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 const _darkTiles  = 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png';
@@ -18,6 +21,10 @@ class IvertubaniMap extends StatefulWidget {
     required this.initialLocation,
     required this.markers,
     required this.currentLocation,
+    // ── Measurement ───────────────────────────────────────────────────────────
+    required this.measureMode,
+    required this.measurePoints,
+    required this.onMapTap,
   });
 
   final Future<FileCacheStore>? cacheStoreFuture;
@@ -25,6 +32,10 @@ class IvertubaniMap extends StatefulWidget {
   final LatLng initialLocation;
   final List<Marker> markers;
   final LatLng? currentLocation;
+
+  final MeasureMode measureMode;
+  final List<LatLng> measurePoints;
+  final void Function(TapPosition, LatLng) onMapTap;
 
   @override
   State<IvertubaniMap> createState() => _IvertubaniMapState();
@@ -48,6 +59,7 @@ class _IvertubaniMapState extends State<IvertubaniMap> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final scheme = Theme.of(context).colorScheme;
 
     return FutureBuilder<FileCacheStore>(
       future: widget.cacheStoreFuture,
@@ -57,6 +69,7 @@ class _IvertubaniMapState extends State<IvertubaniMap> {
           options: MapOptions(
             initialCenter: widget.initialLocation,
             initialZoom: 15,
+            onTap: widget.onMapTap,
           ),
           children: [
             TileLayer(
@@ -81,6 +94,13 @@ class _IvertubaniMapState extends State<IvertubaniMap> {
                   ),
                 ],
               ),
+
+            // ── Measurement overlay layers ────────────────────────────────────
+            ...buildMeasurementLayers(
+              mode:   widget.measureMode,
+              points: widget.measurePoints,
+              scheme: scheme,
+            ),
           ],
         );
       },

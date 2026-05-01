@@ -13,15 +13,18 @@ import 'package:ivertubani/map_screen/widgets/map_control_panel.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../utils/analytics_service.dart';
 import '../../utils/app_launcher_service.dart';
 import '../../utils/location_service.dart';
 import '../../utils/map_action_service.dart';
 import '../../utils/map_data_service.dart';
 import '../../utils/marker_style.dart';
+import '../../utils/measurement_service.dart';
 import '../../utils/review_service.dart';
 import '../widgets/feature_info_modal.dart';
 import '../widgets/ivertubani_appbar.dart';
+import '../widgets/measurement_panel.dart';
 import '../widgets/promotion_modal.dart';
 
 // ─── Isolate helper ───────────────────────────────────────────────────────────
@@ -49,7 +52,7 @@ const _kTechnicalKeys = {
 };
 
 List<Map<String, dynamic>> _filterDataIsolate(_FilterParams params) {
-  final query = params.query.toLowerCase();
+  final query      = params.query.toLowerCase();
   final enabledSet = params.enabledIndices.toSet();
 
   return params.allData.where((row) {
@@ -59,21 +62,17 @@ List<Map<String, dynamic>> _filterDataIsolate(_FilterParams params) {
     );
     if (lat == null || lon == null) return false;
 
-    final type = (row['Type'] ?? row['type'] ?? '').toString();
+    final type     = (row['Type'] ?? row['type'] ?? '').toString();
     final category = MapCategory.fromRaw(type, type);
     final matchesCategory = enabledSet.contains(category.index);
 
-    // ყველა არა-ტექნიკური სვეტის მნიშვნელობა ერთ სტრინგად —
-    // Name, Description, Address, Phone და ნებისმიერი სხვა სვეტი
-    // ავტომატურად მოხვდება ძებნაში, ინგლისური/ქართული ორივე.
     final categoryTerms = params.categorySearchTerms[category.index] ?? [];
     final matchesSearch =
         query.isEmpty ||
         categoryTerms.any((term) => term.contains(query)) ||
         row.entries
             .where((e) => !_kTechnicalKeys.contains(e.key.toLowerCase()))
-            .any((e) =>
-                e.value?.toString().toLowerCase().contains(query) ?? false);
+            .any((e) => e.value?.toString().toLowerCase().contains(query) ?? false);
 
     return matchesCategory && matchesSearch;
   }).toList();
@@ -89,31 +88,40 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> {
-  late final MapController _mapController;
+  late final MapController    _mapController;
   late final TextEditingController _queryController;
-  late final LocationService _locationService;
-  late final MapDataService _dataService;
+  late final LocationService  _locationService;
+  late final MapDataService   _dataService;
   late final MapActionsService _mapActions;
 
-  List<Map<String, dynamic>> _allData = [];
-  List<Marker> _markers = [];
+  // ── Data ─────────────────────────────────────────────────────────────────────
+  List<Map<String, dynamic>> _allData  = [];
+  List<Marker>               _markers  = [];
   bool _isLoading = true;
-  bool _hasError = false;
+  bool _hasError  = false;
+
+  // ── Map state ─────────────────────────────────────────────────────────────────
   final LatLng _initialLocation = const LatLng(41.7301548, 44.8353731);
-  LatLng? _currentLocation;
+  LatLng?      _currentLocation;
   Future<FileCacheStore>? _cacheStoreFuture;
   Set<MapCategory> _enabledCategories = MapCategory.values.toSet();
   Timer? _debounceTimer;
-  int _markerTapCount = 0;
+  int   _markerTapCount = 0;
+
+  // ── Measurement ───────────────────────────────────────────────────────────────
+  MeasureMode    _measureMode   = MeasureMode.none;
+  List<LatLng>   _measurePoints = [];
+
+  // ─────────────────────────────────────────────────────────────────────────────
 
   @override
   void initState() {
     super.initState();
-    _mapController = MapController();
+    _mapController  = MapController();
     _queryController = TextEditingController();
     _locationService = LocationService();
-    _dataService = MapDataService();
-    _mapActions = MapActionsService(_mapController);
+    _dataService     = MapDataService();
+    _mapActions      = MapActionsService(_mapController);
     _initCache();
     _loadData();
     _determinePosition();
@@ -127,44 +135,40 @@ class _MapScreenState extends State<MapScreen> {
     super.dispose();
   }
 
+  // ─── Cache ───────────────────────────────────────────────────────────────────
+
   void _initCache() {
-    // Web-ზე getTemporaryDirectory() არ არსებობს — tile cache მხოლოდ native-ზე.
     if (kIsWeb) return;
     _cacheStoreFuture = getTemporaryDirectory().then(
       (dir) => FileCacheStore(p.join(dir.path, 'map_cache')),
     );
   }
 
+  // ─── Location ─────────────────────────────────────────────────────────────────
+
   Future<void> _determinePosition() async {
     _currentLocation = await _locationService.getCurrentLocation();
     if (mounted) setState(() {});
   }
 
+  // ─── Data loading ─────────────────────────────────────────────────────────────
+
   Future<void> _loadData() async {
     AnalyticsService.instance.logMapSessionStart();
     ReviewService.instance.onSessionStart();
-    setState(() {
-      _isLoading = true;
-      _hasError = false;
-    });
+    setState(() { _isLoading = true; _hasError = false; });
     try {
       _allData = await _dataService.loadData();
       await _filterMarkers();
     } catch (e) {
       debugPrint('_loadData error: $e');
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-          _hasError = true;
-        });
+        setState(() { _isLoading = false; _hasError = true; });
         final l10n = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(l10n.loadError),
-            action: SnackBarAction(
-              label: l10n.retry,
-              onPressed: _loadData,
-            ),
+            action: SnackBarAction(label: l10n.retry, onPressed: _loadData),
             behavior: SnackBarBehavior.floating,
             duration: const Duration(seconds: 4),
           ),
@@ -173,9 +177,9 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
+  // ─── Marker filtering ─────────────────────────────────────────────────────────
+
   Future<void> _filterMarkers() async {
-    // ლოკალიზებული search terms: ქართული subCategories + მიმდინარე ლოკალის label.
-    // ეს main thread-ზე იგება, რათა l10n isolate-ში არ გახვიდეს.
     final l10n = AppLocalizations.of(context);
     final categorySearchTerms = {
       for (final cat in MapCategory.values)
@@ -186,32 +190,47 @@ class _MapScreenState extends State<MapScreen> {
     };
 
     final params = _FilterParams(
-      allData: _allData,
-      query: _queryController.text,
-      enabledIndices: _enabledCategories.map((c) => c.index).toList(),
+      allData:             _allData,
+      query:               _queryController.text,
+      enabledIndices:      _enabledCategories.map((c) => c.index).toList(),
       categorySearchTerms: categorySearchTerms,
     );
 
     final filteredRows = await compute(_filterDataIsolate, params);
 
     final newMarkers = filteredRows.map((row) {
-      final lat = double.parse(row['lat'].toString());
-      final lon = double.parse((row['long'] ?? row['lon']).toString());
-      final type = (row['Type'] ?? row['type'] ?? '').toString();
+      final lat   = double.parse(row['lat'].toString());
+      final lon   = double.parse((row['long'] ?? row['lon']).toString());
+      final type  = (row['Type'] ?? row['type'] ?? '').toString();
       final style = MapCategory.fromRaw(type, type).style;
 
       return Marker(
-        point: LatLng(lat, lon),
-        width: 45,
+        point:  LatLng(lat, lon),
+        width:  45,
         height: 45,
         child: GestureDetector(
           onTap: () {
             HapticFeedback.lightImpact();
+
+            // ── Measurement mode: add point ──────────────────────────────────
+            if (_measureMode != MeasureMode.none) {
+              setState(() {
+                if (_measureMode == MeasureMode.coordinate) {
+                  _measurePoints = [LatLng(lat, lon)];
+                } else {
+                  _measurePoints = [..._measurePoints, LatLng(lat, lon)];
+                }
+              });
+              return;
+            }
+
+            // ── Normal mode: open feature modal ─────────────────────────────
             AnalyticsService.instance.logMarkerTapped(
-              name: (row['Name'] ?? '').toString(),
+              name:     (row['Name'] ?? '').toString(),
               category: type,
             );
             FeatureInfoModal.openFutureInfoModal(context, attributes: row);
+
             _markerTapCount++;
             if (_markerTapCount == 10) {
               Future.delayed(const Duration(milliseconds: 600), () {
@@ -234,11 +253,13 @@ class _MapScreenState extends State<MapScreen> {
 
     if (mounted) {
       setState(() {
-        _markers = newMarkers;
+        _markers   = newMarkers;
         _isLoading = false;
       });
     }
   }
+
+  // ─── Search ───────────────────────────────────────────────────────────────────
 
   void _onSearchChanged(String query) {
     _debounceTimer?.cancel();
@@ -248,11 +269,51 @@ class _MapScreenState extends State<MapScreen> {
     });
   }
 
-  // ─── Empty state ────────────────────────────────────────────────────────────
+  // ─── Measurement ──────────────────────────────────────────────────────────────
+
+  void _onMapTap(TapPosition _, LatLng latLng) {
+    if (_measureMode == MeasureMode.none) return;
+    setState(() {
+      if (_measureMode == MeasureMode.coordinate) {
+        _measurePoints = [latLng];          // coordinate: single point, replace
+      } else {
+        _measurePoints = [..._measurePoints, latLng]; // line/polygon: accumulate
+      }
+    });
+  }
+
+  void _toggleMeasure() {
+    setState(() {
+      if (_measureMode == MeasureMode.none) {
+        _measureMode   = MeasureMode.coordinate;
+        _measurePoints = [];
+      } else {
+        _measureMode   = MeasureMode.none;
+        _measurePoints = [];
+      }
+    });
+  }
+
+  // ─── Share map view ───────────────────────────────────────────────────────────
+
+  Future<void> _onShareMapView() async {
+    final center = _mapController.camera.center;
+    final zoom   = _mapController.camera.zoom.round();
+    final lat    = center.latitude.toStringAsFixed(5);
+    final lon    = center.longitude.toStringAsFixed(5);
+
+    final url  = 'https://www.openstreetmap.org/#map=$zoom/$lat/$lon';
+    final text = '🗺️ ივერთუბანი — Ivertubani District\n'
+                 '📍 $lat° N, $lon° E  (zoom $zoom)\n$url';
+
+    await Share.share(text, subject: 'ივერთუბანი რუკა');
+  }
+
+  // ─── Empty state ──────────────────────────────────────────────────────────────
 
   Widget _buildEmptyState() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final query = _queryController.text;
+    final query  = _queryController.text;
 
     return Center(
       child: Container(
@@ -296,12 +357,14 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
+  // ─── Build ────────────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
-    final systemBottom = MediaQuery.of(context).systemGestureInsets.bottom;
+    final systemBottom  = MediaQuery.of(context).systemGestureInsets.bottom;
     final showEmptyState =
         !_isLoading &&
-        !_hasError &&
+        !_hasError  &&
         _markers.isEmpty &&
         _queryController.text.isNotEmpty;
 
@@ -319,7 +382,7 @@ class _MapScreenState extends State<MapScreen> {
         onCategoryPress: (res) {
           AnalyticsService.instance.logCategoryFilterChanged(
             category: res.category.name,
-            enabled: res.selected ?? false,
+            enabled:  res.selected ?? false,
           );
           setState(() {
             res.selected!
@@ -330,47 +393,80 @@ class _MapScreenState extends State<MapScreen> {
         },
       ),
       body: Padding(
-        padding: EdgeInsets.only(bottom: systemBottom),
-        child: Stack(
-          children: [
-            IvertubaniMap(
-              cacheStoreFuture: _cacheStoreFuture,
-              mapController: _mapController,
-              initialLocation: _initialLocation,
-              markers: _markers,
-              currentLocation: _currentLocation,
-            ),
-
-            // Loading indicator
-            if (_isLoading)
-              const Center(child: CircularProgressIndicator()),
-
-            // Empty search state
-            if (showEmptyState) _buildEmptyState(),
-
-            IvertubaniTextField(
-              controller: _queryController,
-              onTextFieldChange: _onSearchChanged,
-            ),
-
-            MapControlPanel(
-              onZoomIn: () => _mapActions.zoomIn(),
-              onZoomOut: () => _mapActions.zoomOut(),
-              onFocus: () => _mapActions.focus(
-                markers: _markers,
-                initialLocation: _initialLocation,
+          padding: EdgeInsets.only(bottom: systemBottom),
+          child: Stack(
+            children: [
+              // ── Map ───────────────────────────────────────────────────────────
+              IvertubaniMap(
+                cacheStoreFuture: _cacheStoreFuture,
+                mapController:    _mapController,
+                initialLocation:  _initialLocation,
+                markers:          _markers,
+                currentLocation:  _currentLocation,
+                measureMode:      _measureMode,
+                measurePoints:    _measurePoints,
+                onMapTap:         _onMapTap,
               ),
-              onGps: () async {
-                AnalyticsService.instance.logGpsTapped();
-                await _determinePosition();
-                if (_currentLocation != null) {
-                  _mapActions.goToLocation(_currentLocation!);
-                }
-              },
-            ),
-          ],
+
+              // ── Loading ───────────────────────────────────────────────────────
+              if (_isLoading)
+                const Center(child: CircularProgressIndicator()),
+
+              // ── Empty search state ────────────────────────────────────────────
+              if (showEmptyState) _buildEmptyState(),
+
+              // ── Search bar ────────────────────────────────────────────────────
+              IvertubaniTextField(
+                controller:        _queryController,
+                onTextFieldChange: _onSearchChanged,
+              ),
+
+              // ── Control panel ─────────────────────────────────────────────────
+              MapControlPanel(
+                onZoomIn:    () => _mapActions.zoomIn(),
+                onZoomOut:   () => _mapActions.zoomOut(),
+                onFocus: () => _mapActions.focus(
+                  markers:         _markers,
+                  initialLocation: _initialLocation,
+                ),
+                onGps: () async {
+                  AnalyticsService.instance.logGpsTapped();
+                  await _determinePosition();
+                  if (_currentLocation != null) {
+                    _mapActions.goToLocation(_currentLocation!);
+                  }
+                },
+                onShare:      _onShareMapView,
+                onMeasure:    _toggleMeasure,
+                measureMode:  _measureMode,
+              ),
+
+              // ── Measurement panel ─────────────────────────────────────────────
+              if (_measureMode != MeasureMode.none)
+                Align(
+                  alignment: Alignment.bottomCenter,
+                  child: MeasurementPanel(
+                    mode:   _measureMode,
+                    points: _measurePoints,
+                    onModeChanged: (mode) => setState(() {
+                      _measureMode   = mode;
+                      _measurePoints = [];
+                    }),
+                    onUndo: () => setState(() {
+                      if (_measurePoints.isNotEmpty) {
+                        _measurePoints = List.from(_measurePoints)..removeLast();
+                      }
+                    }),
+                    onClear: () => setState(() => _measurePoints = []),
+                    onClose: () => setState(() {
+                      _measureMode   = MeasureMode.none;
+                      _measurePoints = [];
+                    }),
+                  ),
+                ),
+            ],
+          ),
         ),
-      ),
     );
   }
 }

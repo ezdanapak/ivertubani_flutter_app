@@ -6,6 +6,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   dynamic_color
   firebase_core
   geolocator_windows
+  share_plus
   url_launcher_windows
 )
 
