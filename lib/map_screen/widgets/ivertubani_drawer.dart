@@ -151,22 +151,18 @@ class IvertubaniDrawer extends StatelessWidget {
                 ListTile(
                   leading: Icon(Icons.info_outline, color: iconColor),
                   title: Text(l10n.aboutApp),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(l10n.aboutText),
-                      const SizedBox(height: 8),
-                      GestureDetector(
-                        onTap: _onGitHubPress,
-                        child: Lottie.asset(
-                          'assets/animations/github_cat.json',
-                          width: 80,
-                          height: 80,
-                          repeat: true,
-                          fit: BoxFit.contain,
-                        ),
-                      ),
-                    ],
+                  subtitle: Text(l10n.aboutText),
+                ),
+                Center(
+                  child: GestureDetector(
+                    onTap: _onGitHubPress,
+                    child: Lottie.asset(
+                      'assets/animations/github_cat.json',
+                      width: 120,
+                      height: 120,
+                      repeat: true,
+                      fit: BoxFit.contain,
+                    ),
                   ),
                 ),
               ],
