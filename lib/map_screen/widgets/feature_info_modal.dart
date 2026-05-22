@@ -75,6 +75,33 @@ class _FeatureInfoModalState extends State<FeatureInfoModal> {
 
   // ─── Actions ──────────────────────────────────────────────────────────────────
 
+  // ── Phone helpers ──────────────────────────────────────────────────────────
+
+  /// Returns true when the field key or value looks like a phone number.
+  bool _isPhoneField(String key, String value) {
+    final k = key.toLowerCase();
+    if (k.contains('phone') ||
+        k.contains('tel')   ||
+        k.contains('mobile')||
+        k.contains('ტელ')   ||
+        k.contains('ნომ')) {
+      return true;
+    }
+    // value-based: 7–15 chars of digits, spaces, hyphens, +, parentheses
+    final raw = value.replaceAll(RegExp(r'[\s\-\(\)]'), '');
+    return RegExp(r'^\+?[0-9]{7,15}$').hasMatch(raw);
+  }
+
+  void _onCallPress(String phone) async {
+    final cleaned = phone.replaceAll(RegExp(r'[\s\-\(\)]'), '');
+    final uri = Uri.parse('tel:$cleaned');
+    if (!await launchUrl(uri)) {
+      debugPrint('Could not launch $uri');
+    }
+  }
+
+  // ── Link / URL ──────────────────────────────────────────────────────────────
+
   void _onLinkPress(String urlString) async {
     final poiName = widget.displayData
         .firstWhere(
@@ -133,6 +160,38 @@ class _FeatureInfoModalState extends State<FeatureInfoModal> {
 
   // ─── Builders ─────────────────────────────────────────────────────────────────
 
+  Widget _buildPhoneField(
+    String fieldKey,
+    String phone,
+    ColorScheme scheme,
+    AppLocalizations l10n,
+    bool isDark,
+  ) {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildCopyButton(fieldKey, phone, scheme, l10n, isDark),
+        ),
+        const SizedBox(width: 8),
+        Tooltip(
+          message: l10n.callButton,
+          child: InkWell(
+            onTap: () => _onCallPress(phone),
+            borderRadius: BorderRadius.circular(20),
+            child: Container(
+              padding: const EdgeInsets.all(7),
+              decoration: BoxDecoration(
+                color: Colors.green.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.call, color: Colors.green, size: 18),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildLinkButton(String text, VoidCallback onPress) {
     return GestureDetector(
       onTap: onPress,
@@ -165,7 +224,7 @@ class _FeatureInfoModalState extends State<FeatureInfoModal> {
           alignment: Alignment.centerLeft,
           children: [
             ...previousChildren,
-            if (currentChild != null) currentChild,
+            ?currentChild,
           ],
         ),
         child: isCopied
@@ -259,7 +318,9 @@ class _FeatureInfoModalState extends State<FeatureInfoModal> {
                             l10n.viewOnGoogleMaps,
                             () => _onLinkPress(valString),
                           )
-                        : _buildCopyButton(e.key, valString, scheme, l10n, isDark),
+                        : _isPhoneField(e.key, valString)
+                            ? _buildPhoneField(e.key, valString, scheme, l10n, isDark)
+                            : _buildCopyButton(e.key, valString, scheme, l10n, isDark),
                   ),
                 ],
               ),

@@ -80,6 +80,9 @@ class AppLocalizationsKa extends AppLocalizations {
   String get viewOnGoogleMaps => 'იხილეთ Google Maps-ზე ➔';
 
   @override
+  String get callButton => 'დარეკვა';
+
+  @override
   String get categoryEducation => 'განათლება';
 
   @override

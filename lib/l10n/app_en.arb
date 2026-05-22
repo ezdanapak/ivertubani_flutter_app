@@ -75,6 +75,9 @@
   "viewOnGoogleMaps": "View on Google Maps ➔",
   "@viewOnGoogleMaps": { "description": "Link label for Google Maps URLs in the feature info modal" },
 
+  "callButton": "Call",
+  "@callButton": { "description": "Tooltip for the call button in the feature info modal" },
+
   "categoryEducation": "Education",
   "categoryTransport": "Transport",
   "categoryFood": "Food & Drink",

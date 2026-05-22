@@ -80,6 +80,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get viewOnGoogleMaps => 'View on Google Maps ➔';
 
   @override
+  String get callButton => 'Call';
+
+  @override
   String get categoryEducation => 'Education';
 
   @override

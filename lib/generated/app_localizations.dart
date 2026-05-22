@@ -236,6 +236,12 @@ abstract class AppLocalizations {
   /// **'View on Google Maps ➔'**
   String get viewOnGoogleMaps;
 
+  /// Tooltip for the call button in the feature info modal
+  ///
+  /// In en, this message translates to:
+  /// **'Call'**
+  String get callButton;
+
   /// No description provided for @categoryEducation.
   ///
   /// In en, this message translates to:
