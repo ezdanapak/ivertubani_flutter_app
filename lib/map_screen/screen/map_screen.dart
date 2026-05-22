@@ -375,7 +375,6 @@ class _MapScreenState extends State<MapScreen> {
           AnalyticsService.instance.logAddLocationTapped();
           await AppLauncherService.instance.openGoogleForm(context);
         },
-        onRefresh: _loadData,
       ),
       endDrawer: IvertubaniDrawer(
         enabledCategories: _enabledCategories,

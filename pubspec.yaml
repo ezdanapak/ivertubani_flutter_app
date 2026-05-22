@@ -33,6 +33,7 @@ dependencies:
   flutter_map_cache: ^1.5.2
   in_app_review: ^2.0.9
   share_plus: ^10.0.0
+  lottie: ^3.3.1
 
 dev_dependencies:
   flutter_test:
@@ -48,3 +49,4 @@ flutter:
     - assets/data.gpkg
     - assets/data.geojson
     - assets/icon/icon.png
+    - assets/animations/

@@ -16,12 +16,8 @@
 
 *   🌐 **Web:** [ivertubani.qgis.ge](https://ivertubani.qgis.ge) (დააინსტალირეთ როგორც PWA)
 *   🤖 **Android:**
-    *   Google Play Store (დახურული ტესტირების რეჟიმში)
-    *   Samsung Galaxy Store
-    *   Huawei AppGallery
-    *   Aptoide / APKPure
+*   📦 **პირდაპირი APK:** [Releases](https://github.com/ezdanapak/ivertubani_flutter_app/releases) სექციიდან პირდაპირ ჩამოტვირთვა
 *   🖥️ **Desktop:** პირდაპირი **.exe** ფაილის სახით (Windows-ისთვის).
-*   📦 **პირდაპირი ჩამოტვირთვა:** [Releases](https://github.com/ezdanapak/ivertubani_flutter_app/releases) სექციიდან (APK და EXE).
 
 ---
 
