@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:ivertubani/generated/app_localizations.dart';
+import 'package:lottie/lottie.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../utils/analytics_service.dart';
 import '../../utils/locale_service.dart';
@@ -154,16 +155,15 @@ class IvertubaniDrawer extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(l10n.aboutText),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 8),
                       GestureDetector(
                         onTap: _onGitHubPress,
-                        child: Text(
-                          l10n.author,
-                          style: const TextStyle(
-                            color: Colors.blue,
-                            decoration: TextDecoration.underline,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        child: Lottie.asset(
+                          'assets/animations/github_cat.json',
+                          width: 80,
+                          height: 80,
+                          repeat: true,
+                          fit: BoxFit.contain,
                         ),
                       ),
                     ],
