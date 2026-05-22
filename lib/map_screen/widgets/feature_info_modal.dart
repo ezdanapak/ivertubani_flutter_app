@@ -94,8 +94,10 @@ class _FeatureInfoModalState extends State<FeatureInfoModal> {
 
   void _onCallPress(String phone) async {
     final cleaned = phone.replaceAll(RegExp(r'[\s\-\(\)]'), '');
-    final uri = Uri.parse('tel:$cleaned');
-    if (!await launchUrl(uri)) {
+    final uri = Uri(scheme: 'tel', path: cleaned);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
       debugPrint('Could not launch $uri');
     }
   }
