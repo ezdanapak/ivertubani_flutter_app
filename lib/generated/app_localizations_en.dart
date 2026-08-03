@@ -42,7 +42,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aboutText => 'Ivertubani Map v1.0\nUpdated: 22.04.2026';
 
   @override
-  String get author => 'Author: ezdanapak ➔';
+  String get author => 'Author: GIS GEORGIA ➔';
 
   @override
   String get language => 'Language';

@@ -42,7 +42,7 @@ class AppLocalizationsKa extends AppLocalizations {
   String get aboutText => 'ივერთუბნის რუკა v1.0\nგანახლებულია: 22.04.2026';
 
   @override
-  String get author => 'ავტორი: ezdanapak ➔';
+  String get author => 'ავტორი: GIS GEORGIA ➔';
 
   @override
   String get language => 'ენა';

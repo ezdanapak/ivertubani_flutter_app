@@ -18,7 +18,7 @@ class IvertubaniDrawer extends StatelessWidget {
   final ValueChanged<({bool? selected, MapCategory category})> onCategoryPress;
 
   void _onGitHubPress() async {
-    final uri = Uri.parse('https://github.com/ezdanapak/ivertubani_flutter_app');
+    final uri = Uri.parse('https://github.com/GIS-GEORGIA/ivertubani_flutter_app');
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
       debugPrint('Could not launch $uri');
     }

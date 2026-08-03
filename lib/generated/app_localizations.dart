@@ -167,7 +167,7 @@ abstract class AppLocalizations {
   /// Author link text in about section
   ///
   /// In en, this message translates to:
-  /// **'Author: ezdanapak ➔'**
+  /// **'Author: GIS GEORGIA ➔'**
   String get author;
 
   /// Language switcher label in drawer

@@ -84,7 +84,7 @@ flutter run -d chrome
 ### Custom Domain კონფიგურაცია:
 *   **web/CNAME:** ფაილი, რომელიც აფიქსირებს `ivertubani.qgis.ge` დომენს.
 *   **web/index.html:** შეიცავს `<base href="/">` ჩანაწერს.
-*   **DNS ჩანაწერი:** დომენის პანელში დამატებულია `CNAME` ტიპის ჩანაწერი: `ivertubani` -> `ezdanapak.github.io`.
+*   **DNS ჩანაწერი:** დომენის პანელში დამატებულია `CNAME` ტიპის ჩანაწერი: `ivertubani` -> `gis-georgia.github.io`.
 
 ---
 
@@ -103,4 +103,4 @@ flutter run -d chrome
 *   **Web 404 on Assets:** გამოსავალი: `pubspec.yaml`-ში ფაილების რეგისტრაცია და `flutter pub get`.
 
 ---
-© 2026 ezdanapak. ყველა უფლება დაცულია.
+© 2026 GIS GEORGIA. ყველა უფლება დაცულია.

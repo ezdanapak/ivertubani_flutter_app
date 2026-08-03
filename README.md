@@ -16,7 +16,7 @@
 
 *   🌐 **Web:** [ivertubani.qgis.ge](https://ivertubani.qgis.ge) (დააინსტალირეთ როგორც PWA)
 *   🤖 **Android:**
-*   📦 **პირდაპირი APK:** [Releases](https://github.com/ezdanapak/ivertubani_flutter_app/releases) სექციიდან პირდაპირ ჩამოტვირთვა
+*   📦 **პირდაპირი APK:** [Releases](https://github.com/GIS-GEORGIA/ivertubani_flutter_app/releases) სექციიდან პირდაპირ ჩამოტვირთვა
 *   🖥️ **Desktop:** პირდაპირი **.exe** ფაილის სახით (Windows-ისთვის).
 
 ---
@@ -60,4 +60,4 @@
 *   **ცვლილებების შეზღუდვა:** ავტორი არ გასცემს უფლებას პროექტში რაიმე სახის ცვლილებების შეტანაზე.
 
 ---
-© 2026 ezdanapak. ყველა უფლება დაცულია.
+© 2026 GIS GEORGIA. ყველა უფლება დაცულია.
